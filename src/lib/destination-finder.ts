@@ -1,4 +1,3 @@
-import { EUROPE_DESTINATIONS } from '../data/europe-destinations';
 import type { Destination, DestinationSearchInput, RankedDestination } from './travel-types';
 
 function textMatches(destination: Destination, query?: string) {
@@ -10,8 +9,11 @@ function textMatches(destination: Destination, query?: string) {
     .includes(q);
 }
 
-export function findDestinations(input: DestinationSearchInput): RankedDestination[] {
-  return EUROPE_DESTINATIONS
+export function findDestinations(
+  destinations: Destination[],
+  input: DestinationSearchInput,
+): RankedDestination[] {
+  return destinations
     .filter((d) => textMatches(d, input.query))
     .filter((d) => !input.countries?.length || input.countries.includes(d.countryCode))
     .filter((d) => !input.types?.length || input.types.includes(d.type))

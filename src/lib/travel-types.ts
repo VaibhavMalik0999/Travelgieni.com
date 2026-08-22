@@ -32,7 +32,7 @@ export interface Destination {
   bestMonths: number[];
   costLevel: CostLevel;
   typicalDays: [number, number];
-  source: 'TravelGieni seed catalogue';
+  source: 'TravelGieni seed catalogue' | 'TravelGieni database';
 }
 
 export interface DestinationSearchInput {
