@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { findDestinations } from '@/lib/destination-finder';
 import { loadDestinations } from '@/lib/load-destinations';
+import {
+  formatMinutes,
+  loadReachablePlaces,
+  type ReachablePlace,
+} from '@/lib/load-reachable-places';
 import type { CostLevel, Destination, TravelInterest } from '@/lib/travel-types';
 import styles from './EuropeDestinationDiscovery.module.css';
 
@@ -24,15 +29,39 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+const FLIGHT_LIMITS = [
+  { value: 60, label: 'Up to 1 hour' },
+  { value: 120, label: 'Up to 2 hours' },
+  { value: 180, label: 'Up to 3 hours' },
+  { value: 240, label: 'Up to 4 hours' },
+  { value: 300, label: 'Up to 5 hours' },
+];
+
+const ONWARD_LIMITS = [
+  { value: 50, label: 'Within 50 km of airport' },
+  { value: 100, label: 'Within 100 km of airport' },
+  { value: 200, label: 'Within 200 km of airport' },
+  { value: 300, label: 'Within 300 km of airport' },
+];
+
 export function EuropeDestinationDiscovery() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
   const [query, setQuery] = useState('');
   const [month, setMonth] = useState<number | undefined>();
   const [tripDays, setTripDays] = useState(5);
   const [maxCostLevel, setMaxCostLevel] = useState<CostLevel>(3);
   const [interests, setInterests] = useState<TravelInterest[]>(['nature', 'food']);
+
+  const [originAirport] = useState('BER');
+  const [maxFlightMinutes, setMaxFlightMinutes] = useState(180);
+  const [maxOnwardDistanceKm, setMaxOnwardDistanceKm] = useState(200);
+  const [reachablePlaces, setReachablePlaces] = useState<ReachablePlace[]>([]);
+  const [reachabilityLoading, setReachabilityLoading] = useState(false);
+  const [reachabilityError, setReachabilityError] = useState<string | null>(null);
+  const [reachabilitySearched, setReachabilitySearched] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -60,6 +89,7 @@ export function EuropeDestinationDiscovery() {
   );
 
   const results = allMatches.slice(0, 9);
+  const reachablePreview = reachablePlaces.slice(0, 12);
 
   function toggleInterest(interest: TravelInterest) {
     setInterests((current) =>
@@ -67,6 +97,27 @@ export function EuropeDestinationDiscovery() {
         ? current.filter((item) => item !== interest)
         : [...current, interest],
     );
+  }
+
+  async function discoverReachablePlaces() {
+    setReachabilityLoading(true);
+    setReachabilityError(null);
+    setReachabilitySearched(true);
+
+    try {
+      const data = await loadReachablePlaces(
+        originAirport,
+        maxFlightMinutes,
+        maxOnwardDistanceKm,
+      );
+      setReachablePlaces(data);
+    } catch (error) {
+      console.error('TravelGieni reachability search failed', error);
+      setReachabilityError('Could not load reachable locations from the transport network.');
+      setReachablePlaces([]);
+    } finally {
+      setReachabilityLoading(false);
+    }
   }
 
   return (
@@ -85,6 +136,105 @@ export function EuropeDestinationDiscovery() {
         <p className={styles.heroCopy}>
           Tell us what kind of trip you want. TravelGieni ranks European destinations that fit your preferences.
         </p>
+      </section>
+
+      <section className={styles.reachabilityCard} aria-label="Travel reachability">
+        <div className={styles.reachabilityIntro}>
+          <div>
+            <p className={styles.sectionLabel}>REACHABILITY BETA</p>
+            <h2>How far are you willing to travel?</h2>
+          </div>
+          <p>
+            We first identify location possibilities. Onward airport distance stays visible instead of silently eliminating them.
+          </p>
+        </div>
+
+        <div className={styles.reachabilityControls}>
+          <label>
+            <span>Starting from</span>
+            <select value={originAirport} disabled>
+              <option value="BER">Berlin · BER</option>
+            </select>
+            <small>Berlin is the first loaded test origin. The transport model itself supports any origin.</small>
+          </label>
+
+          <label>
+            <span>Maximum flight time</span>
+            <select
+              value={maxFlightMinutes}
+              onChange={(event) => setMaxFlightMinutes(Number(event.target.value))}
+            >
+              {FLIGHT_LIMITS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span>Show locations</span>
+            <select
+              value={maxOnwardDistanceKm}
+              onChange={(event) => setMaxOnwardDistanceKm(Number(event.target.value))}
+            >
+              {ONWARD_LIMITS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            className={styles.discoverButton}
+            onClick={discoverReachablePlaces}
+            disabled={reachabilityLoading}
+          >
+            {reachabilityLoading ? 'Finding locations…' : 'Find reachable locations'}
+          </button>
+        </div>
+
+        {reachabilityError && (
+          <div className={styles.reachabilityMessage}>{reachabilityError}</div>
+        )}
+
+        {!reachabilityError && reachabilitySearched && !reachabilityLoading && (
+          <div className={styles.reachabilityResults}>
+            <div className={styles.reachabilitySummary}>
+              <strong>{reachablePlaces.length.toLocaleString()}</strong>
+              <span>
+                location candidates found with flights up to {formatMinutes(maxFlightMinutes)} and within {maxOnwardDistanceKm} km of an arrival airport
+              </span>
+            </div>
+
+            {reachablePreview.length > 0 && (
+              <div className={styles.reachableGrid}>
+                {reachablePreview.map((place) => (
+                  <article
+                    className={styles.reachableCard}
+                    key={`${place.sourcePlaceId}-${place.arrivalAirport}`}
+                  >
+                    <div>
+                      <p className={styles.country}>{place.countryCode}</p>
+                      <h3>{place.placeName}</h3>
+                    </div>
+                    <div className={styles.routeLine}>
+                      <strong>{formatMinutes(place.flightMinutes)}</strong>
+                      <span>flight to {place.arrivalAirport}</span>
+                    </div>
+                    <p>
+                      {place.airportToPlaceDistanceKm.toFixed(0)} km from {place.airportName}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            )}
+
+            {reachablePlaces.length > reachablePreview.length && (
+              <p className={styles.previewNote}>
+                Showing the first {reachablePreview.length} candidates. Ranking by travel preferences comes after we connect this reachability layer to enriched TravelGieni destinations.
+              </p>
+            )}
+          </div>
+        )}
       </section>
 
       <section className={styles.searchCard} aria-label="Destination preferences">
