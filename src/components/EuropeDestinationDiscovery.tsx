@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { findDestinations } from '@/lib/destination-finder';
-import type { CostLevel, TravelInterest } from '@/lib/travel-types';
+import { loadDestinations } from '@/lib/load-destinations';
+import type { CostLevel, Destination, TravelInterest } from '@/lib/travel-types';
 import styles from './EuropeDestinationDiscovery.module.css';
 
 const INTERESTS: Array<{ value: TravelInterest; label: string }> = [
@@ -24,15 +25,38 @@ const MONTHS = [
 ];
 
 export function EuropeDestinationDiscovery() {
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [month, setMonth] = useState<number | undefined>();
   const [tripDays, setTripDays] = useState(5);
   const [maxCostLevel, setMaxCostLevel] = useState<CostLevel>(3);
   const [interests, setInterests] = useState<TravelInterest[]>(['nature', 'food']);
 
+  useEffect(() => {
+    let active = true;
+
+    loadDestinations()
+      .then((data) => {
+        if (active) setDestinations(data);
+      })
+      .catch((error: unknown) => {
+        console.error('TravelGieni destination load failed', error);
+        if (active) setLoadError('Could not load destinations from the TravelGieni database.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const allMatches = useMemo(
-    () => findDestinations({ query, month, tripDays, maxCostLevel, interests }),
-    [query, month, tripDays, maxCostLevel, interests],
+    () => findDestinations(destinations, { query, month, tripDays, maxCostLevel, interests }),
+    [destinations, query, month, tripDays, maxCostLevel, interests],
   );
 
   const results = allMatches.slice(0, 9);
@@ -135,12 +159,22 @@ export function EuropeDestinationDiscovery() {
         <div className={styles.resultHeader}>
           <div>
             <p className={styles.sectionLabel}>YOUR SHORTLIST</p>
-            <h2>{results.length ? 'Best matches for this trip' : 'No matches yet'}</h2>
+            <h2>
+              {loading
+                ? 'Loading TravelGieni destinations…'
+                : results.length
+                  ? 'Best matches for this trip'
+                  : 'No matches yet'}
+            </h2>
           </div>
-          <p>{allMatches.length} destinations match your current filters</p>
+          <p>{loading ? 'Connecting to destination database…' : `${allMatches.length} destinations match your current filters`}</p>
         </div>
 
-        {results.length ? (
+        {loadError ? (
+          <div className={styles.emptyState}>{loadError}</div>
+        ) : loading ? (
+          <div className={styles.emptyState}>Loading destinations from Supabase…</div>
+        ) : results.length ? (
           <div className={styles.results}>
             {results.map((destination, index) => (
               <article className={styles.card} key={destination.id}>
@@ -186,7 +220,7 @@ export function EuropeDestinationDiscovery() {
 
       <footer className={styles.footer}>
         <span>TravelGieni.com</span>
-        <span>Destination discovery engine · No LLM · No booking</span>
+        <span>Destination discovery engine · Supabase connected · No LLM</span>
       </footer>
     </main>
   );
