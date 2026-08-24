@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as RequestBody;
     const preferences = validatePreferences(body.preferences);
-    const limit = Math.min(12, Math.max(3, isNumber(body.limit) ? Math.round(body.limit) : 8));
+    const limit = Math.min(20, Math.max(3, isNumber(body.limit) ? Math.round(body.limit) : 20));
 
     // Reuse the URL variable already used by the existing TravelGieni repo.
     // SUPABASE_URL is also supported if you prefer a server-only URL variable.
