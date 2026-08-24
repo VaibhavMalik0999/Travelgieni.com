@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import { getIntent, INTENTS, IntentKey } from "@/lib/travelginni/intents";
+import { getIntent, INTENTS, IntentKey } from "@/lib/intents";
 import styles from "./DestinationDiscovery.module.css";
 
 type PreferenceState = Partial<
