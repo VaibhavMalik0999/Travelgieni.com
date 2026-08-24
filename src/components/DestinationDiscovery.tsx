@@ -148,7 +148,7 @@ export default function DestinationDiscovery() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           preferences: matcherPreferences,
-          limit: 8,
+          limit: 20,
         }),
       });
 
