@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { getIntent, INTENTS, IntentKey } from "@/lib/intents";
 import styles from "./DestinationDiscovery.module.css";
 import OriginPicker, { type Origin } from "./OriginPicker";
+import TripTimingPicker, { type TripTiming } from "./TripTimingPicker";
 
 type PreferenceState = Partial<
   Record<
@@ -76,6 +77,7 @@ export default function DestinationDiscovery() {
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [origin, setOrigin] = useState<Origin | null>(null);
+  const [tripTiming, setTripTiming] = useState<TripTiming | null>(null);
 
   const selectedCount = Object.keys(preferences).length;
 
@@ -191,6 +193,7 @@ export default function DestinationDiscovery() {
       </section>
 
       <OriginPicker value={origin} onChange={setOrigin} />
+      <TripTimingPicker value={tripTiming} onChange={setTripTiming} />
 
       <form className={styles.discoveryPanel} onSubmit={submit}>
         <div className={styles.sectionHeader}>
