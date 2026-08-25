@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { getIntent, INTENTS, IntentKey } from "@/lib/intents";
 import styles from "./DestinationDiscovery.module.css";
+import OriginPicker, { type Origin } from "./OriginPicker";
 
 type PreferenceState = Partial<
   Record<
@@ -74,6 +75,7 @@ export default function DestinationDiscovery() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [origin, setOrigin] = useState<Origin | null>(null);
 
   const selectedCount = Object.keys(preferences).length;
 
@@ -187,6 +189,8 @@ export default function DestinationDiscovery() {
           destinations and give you a small set worth considering.
         </p>
       </section>
+
+      <OriginPicker value={origin} onChange={setOrigin} />
 
       <form className={styles.discoveryPanel} onSubmit={submit}>
         <div className={styles.sectionHeader}>
