@@ -154,6 +154,24 @@ function getMeta(
   return cleanHtml(extmetadata?.[key]?.value ?? null);
 }
 
+function hasAllowedLicense(candidate: CommonsCandidate) {
+  if (!candidate.licenseShortName || !candidate.licenseUrl) return false;
+
+  const licenseText = `${candidate.licenseShortName} ${candidate.licenseUrl}`.toLowerCase();
+
+  const allowedLicenseHints = [
+    "cc by",
+    "cc-by",
+    "cc0",
+    "public domain",
+    "creativecommons.org/licenses/by/",
+    "creativecommons.org/licenses/by-sa/",
+    "creativecommons.org/publicdomain/",
+  ];
+
+  return allowedLicenseHints.some((hint) => licenseText.includes(hint));
+}
+
 export async function GET(request: NextRequest) {
   const startedAt = Date.now();
 
@@ -270,47 +288,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const selected = candidates[0];
+    // License eligibility is part of candidate selection, not a post-selection failure.
+    // This prevents an otherwise-good destination from failing just because the
+    // highest metadata score belongs to a license we have not approved for V1.
+    const eligibleCandidates = candidates.filter(hasAllowedLicense);
 
-    if (!selected.licenseShortName || !selected.licenseUrl) {
+    if (!eligibleCandidates.length) {
       return NextResponse.json(
         {
           ok: false,
-          stage: "license_check",
+          stage: "license_filter",
           destination,
-          reason: "selected_candidate_missing_license_metadata",
-          selected,
+          reason: "no_candidates_with_v1_allowed_license",
           candidates,
         },
         { status: 422 }
       );
     }
 
-    const allowedLicenseHints = [
-      "cc by",
-      "cc-by",
-      "cc0",
-      "public domain",
-      "pd",
-    ];
-
-    const licenseText = `${selected.licenseShortName} ${
-      selected.licenseUrl ?? ""
-    }`.toLowerCase();
-
-    if (!allowedLicenseHints.some((hint) => licenseText.includes(hint))) {
-      return NextResponse.json(
-        {
-          ok: false,
-          stage: "license_check",
-          destination,
-          reason: "license_not_in_v1_allowlist",
-          selected,
-          candidates,
-        },
-        { status: 422 }
-      );
-    }
+    const selected = eligibleCandidates[0];
 
     const extension =
       selected.mime === "image/png"
@@ -372,6 +368,8 @@ export async function GET(request: NextRequest) {
       destination,
       elapsed_seconds: Number(((Date.now() - startedAt) / 1000).toFixed(2)),
       candidate_count: candidates.length,
+      eligible_candidate_count: eligibleCandidates.length,
+      rejected_by_license_count: candidates.length - eligibleCandidates.length,
       selected: {
         commons_page_id: selected.pageId,
         commons_file_title: selected.title,
@@ -398,6 +396,7 @@ export async function GET(request: NextRequest) {
         size_bytes: uploadPayload?.size ?? null,
       },
       top_candidates: candidates.slice(0, 5).map((candidate) => ({
+        v1_license_eligible: hasAllowedLicense(candidate),
         title: candidate.title,
         score: candidate.score,
         dimensions: `${candidate.width ?? "?"}x${candidate.height ?? "?"}`,
