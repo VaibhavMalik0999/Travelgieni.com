@@ -133,6 +133,11 @@ export default function DestinationDiscovery() {
       return;
     }
 
+    // Capture the narrowed exact-timing object before entering async workers.
+    // TypeScript does not preserve state-union narrowing across the nested async closure.
+    const exactTiming = tripTiming;
+    const selectedOrigin = origin;
+
     const destinations = results.slice(0, FLIGHT_ENRICH_LIMIT);
 
     setFlightSummaries(
@@ -152,11 +157,11 @@ export default function DestinationDiscovery() {
 
         try {
           const params = new URLSearchParams({
-            origin_lat: String(origin!.latitude),
-            origin_lon: String(origin!.longitude),
+            origin_lat: String(selectedOrigin.latitude),
+            origin_lon: String(selectedOrigin.longitude),
             destination_id: destination.traveller_destination_id,
-            departure_date: tripTiming!.startDate,
-            return_date: tripTiming!.endDate,
+            departure_date: exactTiming.startDate,
+            return_date: exactTiming.endDate,
           });
 
           const response = await fetch(`/api/flight-summary?${params.toString()}`);
