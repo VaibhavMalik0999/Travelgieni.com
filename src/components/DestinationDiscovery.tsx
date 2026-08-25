@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { getIntent, INTENTS, IntentKey } from "@/lib/intents";
 import styles from "./DestinationDiscovery.module.css";
 import OriginPicker, { type Origin } from "./OriginPicker";
@@ -44,6 +44,43 @@ type DestinationResult = {
   preference_breakdown: Record<string, BreakdownItem>;
 };
 
+type FlightSummary =
+  | { status: "loading" }
+  | {
+      status: "ready";
+      testMode: boolean;
+      originIata: string;
+      destinationIata: string;
+      amount: string;
+      currency: string;
+      duration: string | null;
+      stops: number;
+      direct: boolean;
+      carrier: string | null;
+    }
+  | {
+      status: "unavailable";
+      reason: string;
+    };
+
+const FLIGHT_ENRICH_LIMIT = 8;
+const FLIGHT_CONCURRENCY = 3;
+
+function formatFlightPrice(amount: string, currency: string) {
+  const numeric = Number(amount);
+  if (!Number.isFinite(numeric)) return `${amount} ${currency}`;
+
+  try {
+    return new Intl.NumberFormat("en", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(numeric);
+  } catch {
+    return `${Math.round(numeric)} ${currency}`;
+  }
+}
+
 const STARTER_PREFERENCES: PreferenceState = {
   food_dining: { target: 78, importance: 0.8 },
   culture_history: { target: 72, importance: 0.7 },
@@ -78,6 +115,106 @@ export default function DestinationDiscovery() {
   const [error, setError] = useState<string | null>(null);
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [tripTiming, setTripTiming] = useState<TripTiming | null>(null);
+  const [flightSummaries, setFlightSummaries] = useState<
+    Record<string, FlightSummary>
+  >({});
+  const flightRequestGeneration = useRef(0);
+
+  useEffect(() => {
+    const generation = ++flightRequestGeneration.current;
+
+    if (
+      !origin ||
+      !tripTiming ||
+      tripTiming.mode !== "exact" ||
+      results.length === 0
+    ) {
+      setFlightSummaries({});
+      return;
+    }
+
+    const destinations = results.slice(0, FLIGHT_ENRICH_LIMIT);
+
+    setFlightSummaries(
+      Object.fromEntries(
+        destinations.map((destination) => [
+          destination.traveller_destination_id,
+          { status: "loading" } as FlightSummary,
+        ])
+      )
+    );
+
+    let cursor = 0;
+
+    async function worker() {
+      while (cursor < destinations.length) {
+        const destination = destinations[cursor++];
+
+        try {
+          const params = new URLSearchParams({
+            origin_lat: String(origin!.latitude),
+            origin_lon: String(origin!.longitude),
+            destination_id: destination.traveller_destination_id,
+            departure_date: tripTiming!.startDate,
+            return_date: tripTiming!.endDate,
+          });
+
+          const response = await fetch(`/api/flight-summary?${params.toString()}`);
+          const payload = await response.json();
+
+          if (generation !== flightRequestGeneration.current) return;
+
+          if (!response.ok || !payload.ok) {
+            setFlightSummaries((current) => ({
+              ...current,
+              [destination.traveller_destination_id]: {
+                status: "unavailable",
+                reason: payload.reason ?? "unavailable",
+              },
+            }));
+            continue;
+          }
+
+          setFlightSummaries((current) => ({
+            ...current,
+            [destination.traveller_destination_id]: {
+              status: "ready",
+              testMode: Boolean(payload.test_mode),
+              originIata: payload.airport_pair.origin_iata,
+              destinationIata: payload.airport_pair.destination_iata,
+              amount: payload.cheapest.amount,
+              currency: payload.cheapest.currency,
+              duration: payload.cheapest.outbound_duration,
+              stops: payload.cheapest.outbound_stops,
+              direct: payload.cheapest.outbound_direct,
+              carrier: payload.cheapest.carrier,
+            },
+          }));
+        } catch {
+          if (generation !== flightRequestGeneration.current) return;
+
+          setFlightSummaries((current) => ({
+            ...current,
+            [destination.traveller_destination_id]: {
+              status: "unavailable",
+              reason: "request_failed",
+            },
+          }));
+        }
+      }
+    }
+
+    Promise.all(
+      Array.from(
+        { length: Math.min(FLIGHT_CONCURRENCY, destinations.length) },
+        () => worker()
+      )
+    );
+
+    return () => {
+      flightRequestGeneration.current++;
+    };
+  }, [results, origin, tripTiming]);
 
   const selectedCount = Object.keys(preferences).length;
 
@@ -133,6 +270,7 @@ export default function DestinationDiscovery() {
     }
 
     setLoading(true);
+    setFlightSummaries({});
 
     try {
       const matcherPreferences = Object.fromEntries(
@@ -372,6 +510,62 @@ export default function DestinationDiscovery() {
                       );
                     })}
                   </div>
+
+                  {origin && tripTiming?.mode === "exact" && index < FLIGHT_ENRICH_LIMIT && (
+                    <div className={styles.flightBlock}>
+                      {flightSummaries[result.traveller_destination_id]?.status === "loading" && (
+                        <div className={styles.flightLoading}>
+                          <span>✈️</span>
+                          <span>Checking flights from {origin.name}…</span>
+                        </div>
+                      )}
+
+                      {flightSummaries[result.traveller_destination_id]?.status === "ready" && (() => {
+                        const flight = flightSummaries[
+                          result.traveller_destination_id
+                        ] as Extract<FlightSummary, { status: "ready" }>;
+
+                        return (
+                          <>
+                            <div className={styles.flightRoute}>
+                              <span className={styles.flightIcon}>✈️</span>
+                              <div>
+                                <strong>
+                                  {flight.duration ?? "Flight available"} ·{" "}
+                                  {flight.direct
+                                    ? "Direct"
+                                    : `${flight.stops} ${flight.stops === 1 ? "stop" : "stops"}`}
+                                </strong>
+                                <small>
+                                  {flight.originIata} → {flight.destinationIata}
+                                  {flight.carrier ? ` · ${flight.carrier}` : ""}
+                                </small>
+                              </div>
+                            </div>
+
+                            <div className={styles.flightPriceRow}>
+                              <div>
+                                <span className={styles.testBadge}>
+                                  {flight.testMode ? "TEST FARE" : "LIVE FARE"}
+                                </span>
+                                <strong>
+                                  from {formatFlightPrice(flight.amount, flight.currency)}
+                                </strong>
+                                <small>return · 1 adult</small>
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
+
+                      {flightSummaries[result.traveller_destination_id]?.status === "unavailable" && (
+                        <div className={styles.flightUnavailable}>
+                          <span>✈️</span>
+                          <span>No flight test result for this destination yet.</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className={styles.confidenceLine}>
                     TravelGinni confidence:{" "}
