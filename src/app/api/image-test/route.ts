@@ -218,9 +218,9 @@ export async function GET(request: NextRequest) {
     const pages = Object.values(commonsPayload?.query?.pages ?? {}) as any[];
 
     const candidates: CommonsCandidate[] = pages
-      .map((page: any) => {
+      .flatMap((page: any): CommonsCandidate[] => {
         const info = page?.imageinfo?.[0];
-        if (!info) return null;
+        if (!info) return [];
 
         const base = {
           pageId: Number(page.pageid),
@@ -242,20 +242,21 @@ export async function GET(request: NextRequest) {
 
         const scored = scoreCandidate(destination, base);
 
-        return {
-          ...base,
-          score: scored.score,
-          scoreReasons: scored.reasons,
-        };
+        return [
+          {
+            ...base,
+            score: scored.score,
+            scoreReasons: scored.reasons,
+          },
+        ];
       })
-      .filter(Boolean)
       .filter(
-        (candidate: CommonsCandidate) =>
+        (candidate) =>
           Boolean(candidate.thumbnailUrl) &&
           candidate.mediaType === "BITMAP" &&
           ["image/jpeg", "image/png", "image/webp"].includes(candidate.mime ?? "")
       )
-      .sort((a: CommonsCandidate, b: CommonsCandidate) => b.score - a.score);
+      .sort((a, b) => b.score - a.score);
 
     if (!candidates.length) {
       return NextResponse.json(
