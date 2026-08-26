@@ -118,10 +118,10 @@ export default function ImageReviewPage() {
     <main style={styles.main}>
       <div style={styles.header}>
         <div>
-          <div style={styles.eyebrow}>VALIDATION ONLY · NO IMAGEKIT UPLOADS</div>
+          <div style={styles.eyebrow}>PEXELS VALIDATION · NO IMAGEKIT UPLOADS</div>
           <h1 style={styles.h1}>100-Destination Image Review</h1>
           <p style={styles.sub}>
-            Three Wikimedia candidates per real TravelGinni destination.
+            Three Pexels candidates per real TravelGinni destination.
             Review whether the set represents the destination well.
           </p>
         </div>
@@ -130,7 +130,7 @@ export default function ImageReviewPage() {
           disabled={running || destinations.length === 0}
           style={styles.runButton}
         >
-          {running ? `Testing ${progress}/${destinations.length}…` : "Run 100-image test"}
+          {running ? `Testing ${progress}/${destinations.length}…` : "Run image test"}
         </button>
       </div>
 
@@ -187,7 +187,7 @@ export default function ImageReviewPage() {
                       )}
                       {image && (
                         <div style={styles.imageInfo}>
-                          #{i + 1} · score {image.score} · {image.license || "license?"}
+                          #{i + 1} · {image.creator || "Pexels photographer"} · {image.license || "Pexels"}
                         </div>
                       )}
                     </div>
