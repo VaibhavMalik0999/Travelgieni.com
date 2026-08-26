@@ -616,3 +616,33 @@
 .hotelUnavailable {
   color: #848b84;
 }
+
+
+.tripCostBlock {
+  margin-top: 12px;
+  padding: 12px 13px;
+  border-radius: 12px;
+  background: rgba(224, 235, 210, 0.52);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tripCostLabel {
+  color: #6a755f;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.tripCostAmount {
+  color: #1f3025;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.tripCostBreakdown {
+  color: #6f786f;
+  font-size: 10px;
+  line-height: 1.35;
+}

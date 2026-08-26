@@ -874,6 +874,45 @@ export default function DestinationDiscovery() {
                     </div>
                   )}
 
+                  {tripTiming?.mode === "exact" &&
+                    index < HOTEL_ENRICH_LIMIT &&
+                    flightSummaries[result.traveller_destination_id]?.status === "ready" &&
+                    hotelSummaries[result.traveller_destination_id]?.status === "ready" &&
+                    (() => {
+                      const flight = flightSummaries[
+                        result.traveller_destination_id
+                      ] as Extract<FlightSummary, { status: "ready" }>;
+                      const hotel = hotelSummaries[
+                        result.traveller_destination_id
+                      ] as Extract<HotelSummary, { status: "ready" }>;
+
+                      if (flight.currency !== hotel.currency) return null;
+
+                      const flightAmount = Number(flight.amount);
+                      const stayAmount = Number(hotel.totalAmount);
+
+                      if (!Number.isFinite(flightAmount) || !Number.isFinite(stayAmount)) {
+                        return null;
+                      }
+
+                      const tripTotal = flightAmount + stayAmount;
+
+                      return (
+                        <div className={styles.tripCostBlock}>
+                          <div className={styles.tripCostLabel}>ESTIMATED TRIP COST</div>
+                          <strong className={styles.tripCostAmount}>
+                            from {formatFlightPrice(String(tripTotal), flight.currency)}
+                          </strong>
+                          <small className={styles.tripCostBreakdown}>
+                            return flight {formatFlightPrice(flight.amount, flight.currency)}
+                            {" + "}
+                            {hotel.nights} {hotel.nights === 1 ? "night" : "nights"} stay{" "}
+                            {formatFlightPrice(String(hotel.totalAmount), hotel.currency)}
+                          </small>
+                        </div>
+                      );
+                    })()}
+
                   <div className={styles.confidenceLine}>
                     TravelGinni confidence:{" "}
                     <strong>{result.travel_role_confidence.toLowerCase()}</strong>
