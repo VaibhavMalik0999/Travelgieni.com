@@ -436,6 +436,108 @@ export default function DestinationDiscovery() {
     };
   }, [results, tripTiming]);
 
+  const visibleResults = useMemo(() => {
+    const tripTotalFor = (result: DestinationResult) => {
+      const flight = flightSummaries[result.traveller_destination_id];
+      const hotel = hotelSummaries[result.traveller_destination_id];
+
+      if (flight?.status !== "ready" || hotel?.status !== "ready") return null;
+      if (flight.currency !== hotel.currency) return null;
+
+      const flightAmount = Number(flight.amount);
+      const stayAmount = Number(hotel.totalAmount);
+
+      if (!Number.isFinite(flightAmount) || !Number.isFinite(stayAmount)) {
+        return null;
+      }
+
+      return flightAmount + stayAmount;
+    };
+
+    const filtered = results.filter((result) => {
+      const flight = flightSummaries[result.traveller_destination_id];
+
+      if (directOnly) {
+        if (flight?.status !== "ready" || !flight.direct) return false;
+      }
+
+      if (maxTripCost !== null) {
+        const total = tripTotalFor(result);
+        if (total === null || total > maxTripCost) return false;
+      }
+
+      return true;
+    });
+
+    return [...filtered].sort((a, b) => {
+      const aFlight = flightSummaries[a.traveller_destination_id];
+      const bFlight = flightSummaries[b.traveller_destination_id];
+      const aHotel = hotelSummaries[a.traveller_destination_id];
+      const bHotel = hotelSummaries[b.traveller_destination_id];
+
+      const missingLast = (aValue: number | null, bValue: number | null) => {
+        if (aValue === null && bValue === null) return 0;
+        if (aValue === null) return 1;
+        if (bValue === null) return -1;
+        return aValue - bValue;
+      };
+
+      if (sortOption === "trip_cost_asc" || sortOption === "trip_cost_desc") {
+        const aValue = tripTotalFor(a);
+        const bValue = tripTotalFor(b);
+        const order = missingLast(aValue, bValue);
+        return sortOption === "trip_cost_desc" && aValue !== null && bValue !== null
+          ? -order
+          : order;
+      }
+
+      if (sortOption === "flight_price_asc") {
+        const aValue =
+          aFlight?.status === "ready" && Number.isFinite(Number(aFlight.amount))
+            ? Number(aFlight.amount)
+            : null;
+        const bValue =
+          bFlight?.status === "ready" && Number.isFinite(Number(bFlight.amount))
+            ? Number(bFlight.amount)
+            : null;
+        return missingLast(aValue, bValue);
+      }
+
+      if (sortOption === "hotel_nightly_asc") {
+        const aValue =
+          aHotel?.status === "ready" && Number.isFinite(aHotel.nightlyAmount)
+            ? aHotel.nightlyAmount
+            : null;
+        const bValue =
+          bHotel?.status === "ready" && Number.isFinite(bHotel.nightlyAmount)
+            ? bHotel.nightlyAmount
+            : null;
+        return missingLast(aValue, bValue);
+      }
+
+      if (sortOption === "flight_duration_asc") {
+        const aValue =
+          aFlight?.status === "ready"
+            ? parseDurationMinutes(aFlight.duration)
+            : null;
+        const bValue =
+          bFlight?.status === "ready"
+            ? parseDurationMinutes(bFlight.duration)
+            : null;
+        return missingLast(aValue, bValue);
+      }
+
+      return b.match_score - a.match_score;
+    });
+  }, [
+    results,
+    flightSummaries,
+    hotelSummaries,
+    sortOption,
+    directOnly,
+    maxTripCost,
+  ]);
+
   const selectedCount = Object.keys(preferences).length;
 
   const selectedIntents = useMemo(
@@ -690,8 +792,71 @@ export default function DestinationDiscovery() {
             </button>
           </div>
 
+          <div className={styles.resultControls}>
+            <div className={styles.controlGroup}>
+              <label htmlFor="travelginni-sort">Sort by</label>
+              <select
+                id="travelginni-sort"
+                value={sortOption}
+                onChange={(event) => setSortOption(event.target.value as SortOption)}
+              >
+                <option value="best_match">Best match</option>
+                <option value="trip_cost_asc">Trip cost: low to high</option>
+                <option value="trip_cost_desc">Trip cost: high to low</option>
+                <option value="flight_price_asc">Flight fare: low to high</option>
+                <option value="hotel_nightly_asc">Stay price/night: low to high</option>
+                <option value="flight_duration_asc">Shortest flight</option>
+              </select>
+            </div>
+
+            <div className={styles.controlGroup}>
+              <label htmlFor="travelginni-max-cost">Max trip cost</label>
+              <select
+                id="travelginni-max-cost"
+                value={maxTripCost ?? ""}
+                onChange={(event) =>
+                  setMaxTripCost(event.target.value ? Number(event.target.value) : null)
+                }
+              >
+                <option value="">Any price</option>
+                <option value="500">Up to €500</option>
+                <option value="750">Up to €750</option>
+                <option value="1000">Up to €1,000</option>
+                <option value="1500">Up to €1,500</option>
+                <option value="2000">Up to €2,000</option>
+              </select>
+            </div>
+
+            <label className={styles.checkboxControl}>
+              <input
+                type="checkbox"
+                checked={directOnly}
+                onChange={(event) => setDirectOnly(event.target.checked)}
+              />
+              <span>Direct flights only</span>
+            </label>
+
+            <div className={styles.controlSummary}>
+              Showing <strong>{visibleResults.length}</strong> of {results.length}
+            </div>
+
+            {(sortOption !== "best_match" || directOnly || maxTripCost !== null) && (
+              <button
+                type="button"
+                className={styles.clearControls}
+                onClick={() => {
+                  setSortOption("best_match");
+                  setDirectOnly(false);
+                  setMaxTripCost(null);
+                }}
+              >
+                Reset
+              </button>
+            )}
+          </div>
+
           <div className={styles.resultGrid}>
-            {results.map((result, index) => {
+            {visibleResults.map((result, index) => {
               const sortedReasons = Object.entries(result.preference_breakdown)
                 .sort(([, a], [, b]) => b.intent_match - a.intent_match)
                 .slice(0, 3);
@@ -771,7 +936,7 @@ export default function DestinationDiscovery() {
                     })}
                   </div>
 
-                  {origin && tripTiming?.mode === "exact" && index < FLIGHT_ENRICH_LIMIT && (
+                  {origin && tripTiming?.mode === "exact" && flightSummaries[result.traveller_destination_id] && (
                     <div className={styles.flightBlock}>
                       {flightSummaries[result.traveller_destination_id]?.status === "loading" && (
                         <div className={styles.flightLoading}>
@@ -827,7 +992,7 @@ export default function DestinationDiscovery() {
                     </div>
                   )}
 
-                  {tripTiming?.mode === "exact" && index < HOTEL_ENRICH_LIMIT && (
+                  {tripTiming?.mode === "exact" && hotelSummaries[result.traveller_destination_id] && (
                     <div className={styles.hotelBlock}>
                       {hotelSummaries[result.traveller_destination_id]?.status === "loading" && (
                         <div className={styles.hotelLoading}>
@@ -875,7 +1040,6 @@ export default function DestinationDiscovery() {
                   )}
 
                   {tripTiming?.mode === "exact" &&
-                    index < HOTEL_ENRICH_LIMIT &&
                     flightSummaries[result.traveller_destination_id]?.status === "ready" &&
                     hotelSummaries[result.traveller_destination_id]?.status === "ready" &&
                     (() => {
