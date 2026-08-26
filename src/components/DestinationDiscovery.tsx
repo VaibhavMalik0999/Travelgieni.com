@@ -63,6 +63,22 @@ type FlightSummary =
       reason: string;
     };
 
+type HotelSummary =
+  | { status: "loading" }
+  | {
+      status: "ready";
+      testMode: boolean;
+      totalAmount: number;
+      nightlyAmount: number;
+      currency: string;
+      nights: number;
+      hotelsFound: number;
+    }
+  | {
+      status: "unavailable";
+      reason: string;
+    };
+
 type DestinationImage =
   | { status: "loading" }
   | {
@@ -77,6 +93,8 @@ type DestinationImage =
 
 const FLIGHT_ENRICH_LIMIT = 8;
 const FLIGHT_CONCURRENCY = 3;
+const HOTEL_ENRICH_LIMIT = 8;
+const HOTEL_CONCURRENCY = 2;
 
 function formatFlightPrice(amount: string, currency: string) {
   const numeric = Number(amount);
@@ -131,6 +149,11 @@ export default function DestinationDiscovery() {
     Record<string, FlightSummary>
   >({});
   const flightRequestGeneration = useRef(0);
+
+  const [hotelSummaries, setHotelSummaries] = useState<
+    Record<string, HotelSummary>
+  >({});
+  const hotelRequestGeneration = useRef(0);
 
   const [destinationImages, setDestinationImages] = useState<
     Record<string, DestinationImage>
@@ -314,6 +337,105 @@ export default function DestinationDiscovery() {
     };
   }, [results, origin, tripTiming]);
 
+  useEffect(() => {
+    const generation = ++hotelRequestGeneration.current;
+
+    if (
+      !tripTiming ||
+      tripTiming.mode !== "exact" ||
+      results.length === 0
+    ) {
+      setHotelSummaries({});
+      return;
+    }
+
+    const exactTiming = tripTiming;
+    const destinations = results
+      .filter(
+        (destination) =>
+          Number.isFinite(destination.latitude) &&
+          Number.isFinite(destination.longitude)
+      )
+      .slice(0, HOTEL_ENRICH_LIMIT);
+
+    setHotelSummaries(
+      Object.fromEntries(
+        destinations.map((destination) => [
+          destination.traveller_destination_id,
+          { status: "loading" } as HotelSummary,
+        ])
+      )
+    );
+
+    let cursor = 0;
+
+    async function worker() {
+      while (cursor < destinations.length) {
+        const destination = destinations[cursor++];
+
+        try {
+          const params = new URLSearchParams({
+            destination_lat: String(destination.latitude),
+            destination_lon: String(destination.longitude),
+            destination_type: destination.destination_type,
+            checkin: exactTiming.startDate,
+            checkout: exactTiming.endDate,
+          });
+
+          const response = await fetch(`/api/hotel-summary?${params.toString()}`);
+          const payload = await response.json();
+
+          if (generation !== hotelRequestGeneration.current) return;
+
+          if (!response.ok || !payload.ok) {
+            setHotelSummaries((current) => ({
+              ...current,
+              [destination.traveller_destination_id]: {
+                status: "unavailable",
+                reason: payload.reason ?? "unavailable",
+              },
+            }));
+            continue;
+          }
+
+          setHotelSummaries((current) => ({
+            ...current,
+            [destination.traveller_destination_id]: {
+              status: "ready",
+              testMode: Boolean(payload.test_mode),
+              totalAmount: Number(payload.cheapest.total_amount),
+              nightlyAmount: Number(payload.cheapest.nightly_amount),
+              currency: payload.cheapest.currency,
+              nights: Number(payload.nights),
+              hotelsFound: Number(payload.hotels_found ?? 0),
+            },
+          }));
+        } catch {
+          if (generation !== hotelRequestGeneration.current) return;
+
+          setHotelSummaries((current) => ({
+            ...current,
+            [destination.traveller_destination_id]: {
+              status: "unavailable",
+              reason: "request_failed",
+            },
+          }));
+        }
+      }
+    }
+
+    Promise.all(
+      Array.from(
+        { length: Math.min(HOTEL_CONCURRENCY, destinations.length) },
+        () => worker()
+      )
+    );
+
+    return () => {
+      hotelRequestGeneration.current++;
+    };
+  }, [results, tripTiming]);
+
   const selectedCount = Object.keys(preferences).length;
 
   const selectedIntents = useMemo(
@@ -369,6 +491,7 @@ export default function DestinationDiscovery() {
 
     setLoading(true);
     setFlightSummaries({});
+    setHotelSummaries({});
 
     try {
       const matcherPreferences = Object.fromEntries(
@@ -699,6 +822,53 @@ export default function DestinationDiscovery() {
                         <div className={styles.flightUnavailable}>
                           <span>✈️</span>
                           <span>No flight test result for this destination yet.</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {tripTiming?.mode === "exact" && index < HOTEL_ENRICH_LIMIT && (
+                    <div className={styles.hotelBlock}>
+                      {hotelSummaries[result.traveller_destination_id]?.status === "loading" && (
+                        <div className={styles.hotelLoading}>
+                          <span>🏨</span>
+                          <span>Checking stay prices…</span>
+                        </div>
+                      )}
+
+                      {hotelSummaries[result.traveller_destination_id]?.status === "ready" && (() => {
+                        const hotel = hotelSummaries[
+                          result.traveller_destination_id
+                        ] as Extract<HotelSummary, { status: "ready" }>;
+
+                        return (
+                          <div className={styles.hotelPriceRow}>
+                            <span className={styles.hotelIcon}>🏨</span>
+                            <div>
+                              <span className={styles.testBadge}>
+                                {hotel.testMode ? "TEST STAY" : "LIVE STAY"}
+                              </span>
+                              <strong>
+                                stays from {formatFlightPrice(
+                                  String(hotel.nightlyAmount),
+                                  hotel.currency
+                                )}/night
+                              </strong>
+                              <small>
+                                {hotel.nights} {hotel.nights === 1 ? "night" : "nights"} · {formatFlightPrice(
+                                  String(hotel.totalAmount),
+                                  hotel.currency
+                                )} total
+                              </small>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {hotelSummaries[result.traveller_destination_id]?.status === "unavailable" && (
+                        <div className={styles.hotelUnavailable}>
+                          <span>🏨</span>
+                          <span>No hotel test rate for this destination yet.</span>
                         </div>
                       )}
                     </div>

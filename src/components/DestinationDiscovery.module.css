@@ -570,3 +570,49 @@
     border-radius: 22px;
   }
 }
+
+.hotelBlock {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(31, 48, 37, 0.1);
+}
+
+.hotelLoading,
+.hotelUnavailable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6f786f;
+  font-size: 12px;
+}
+
+.hotelPriceRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.hotelIcon {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.hotelPriceRow > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hotelPriceRow strong {
+  color: #1f3025;
+  font-size: 14px;
+}
+
+.hotelPriceRow small {
+  color: #6f786f;
+  font-size: 11px;
+}
+
+.hotelUnavailable {
+  color: #848b84;
+}
