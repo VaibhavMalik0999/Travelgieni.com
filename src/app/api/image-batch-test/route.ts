@@ -135,6 +135,15 @@ function score(destination: string, c: Omit<Candidate, "score">) {
   return s;
 }
 
+type QueryFailure = {
+  query: string;
+  error: string;
+};
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function searchCommons(query: string, destination: string): Promise<Candidate[]> {
   const p = new URLSearchParams({
     action: "query",
@@ -152,17 +161,41 @@ async function searchCommons(query: string, destination: string): Promise<Candid
       "Artist|LicenseShortName|LicenseUrl|ImageDescription|Categories",
   });
 
-  const r = await fetch(`https://commons.wikimedia.org/w/api.php?${p.toString()}`, {
-    headers: {
-      "User-Agent": "TravelGinniDestinationImageRetrievalV2/1.0",
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  });
+  const url = `https://commons.wikimedia.org/w/api.php?${p.toString()}`;
+  const maxAttempts = 2;
+  let lastError = "Commons request failed";
+  let data: any = null;
 
-  if (!r.ok) throw new Error(`Commons ${r.status}`);
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const r = await fetch(url, {
+        headers: {
+          "User-Agent": "TravelGinniDestinationImageRetrievalV2/1.1",
+          Accept: "application/json",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(9000),
+      });
 
-  const data = await r.json();
+      if (r.ok) {
+        data = await r.json();
+        break;
+      }
+
+      lastError = `Commons ${r.status}`;
+      const retryable = r.status === 429 || r.status >= 500;
+      if (!retryable || attempt === maxAttempts) {
+        throw new Error(lastError);
+      }
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : "Commons request failed";
+      if (attempt === maxAttempts) throw new Error(lastError);
+    }
+
+    await sleep(350 * attempt);
+  }
+
+  if (!data) throw new Error(lastError);
   const pages = Object.values(data?.query?.pages ?? {}) as any[];
 
   return pages.flatMap((page: any): Candidate[] => {
@@ -212,10 +245,40 @@ function nearDuplicate(a: Candidate, b: Candidate) {
 
 async function getCandidates(destination: string) {
   const querySet = destinationQuerySet(destination);
+  const groups: Candidate[][] = [];
+  const queryFailures: QueryFailure[] = [];
 
-  const groups = await Promise.all(
-    querySet.map((query) => searchCommons(query, destination))
-  );
+  // Keep per-destination Commons pressure low. Two requests at a time is enough for
+  // this validation route and avoids one transient API failure killing the destination.
+  const queryConcurrency = 2;
+  for (let i = 0; i < querySet.length; i += queryConcurrency) {
+    const chunk = querySet.slice(i, i + queryConcurrency);
+    const settled = await Promise.allSettled(
+      chunk.map((query) => searchCommons(query, destination))
+    );
+
+    settled.forEach((result, index) => {
+      const query = chunk[index];
+      if (result.status === "fulfilled") {
+        groups.push(result.value);
+      } else {
+        queryFailures.push({
+          query,
+          error:
+            result.reason instanceof Error
+              ? result.reason.message
+              : "Commons query failed",
+        });
+      }
+    });
+  }
+
+  if (groups.length === 0) {
+    const details = queryFailures
+      .map((failure) => `${failure.query}: ${failure.error}`)
+      .join("; ");
+    throw new Error(`All Commons queries failed${details ? ` (${details})` : ""}`);
+  }
 
   const byId = new Map<number, Candidate>();
   for (const candidate of groups.flat()) {
@@ -227,6 +290,8 @@ async function getCandidates(destination: string) {
 
   return {
     querySet,
+    queryFailures,
+    successfulQueries: groups.length,
     candidates: [...byId.values()].sort((a, b) => b.score - a.score),
   };
 }
@@ -278,7 +343,7 @@ export async function GET(request: NextRequest) {
     }
 
     const results: any[] = [];
-    const concurrency = 4;
+    const concurrency = 2;
 
     for (let i = 0; i < names.length; i += concurrency) {
       const chunk = names.slice(i, i + concurrency);
@@ -286,7 +351,12 @@ export async function GET(request: NextRequest) {
       const chunkResults = await Promise.all(
         chunk.map(async (destination) => {
           try {
-            const { querySet, candidates } = await getCandidates(destination);
+            const {
+              querySet,
+              queryFailures,
+              successfulQueries,
+              candidates,
+            } = await getCandidates(destination);
             const { eligible, selected } = selectThree(candidates);
 
             return {
@@ -298,6 +368,8 @@ export async function GET(request: NextRequest) {
                   ? "PARTIAL"
                   : "NO_ELIGIBLE_IMAGES",
               queries_used: querySet,
+              successful_queries: successfulQueries,
+              query_failures: queryFailures,
               candidates_found: candidates.length,
               eligible_found: eligible.length,
               selected_images: selected.map((c, index) => ({
@@ -343,13 +415,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       diagnostic_only: true,
-      retrieval_version: "travel-oriented-multi-query-v2",
+      retrieval_version: "travel-oriented-multi-query-v2.1-resilient",
       requested: names.length,
       elapsed_seconds: Number(((Date.now() - started) / 1000).toFixed(2)),
       classification_counts: counts,
       results,
       note:
-        "No ImageKit uploads and no database writes. This version retrieves from multiple visual/travel-oriented Commons queries before ranking.",
+        "No ImageKit uploads and no database writes. Individual Commons query failures are retried and reported without failing the whole destination when other queries succeed.",
     });
   } catch (e) {
     return NextResponse.json(
