@@ -130,7 +130,7 @@ export default function ImageReviewPage() {
           disabled={running || destinations.length === 0}
           style={styles.runButton}
         >
-          {running ? `Testing ${progress}/${destinations.length}…` : "Run image test"}
+          {running ? `Testing ${progress}/${destinations.length}…` : "Run 100-image test"}
         </button>
       </div>
 
