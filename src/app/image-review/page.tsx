@@ -42,7 +42,7 @@ export default function ImageReviewPage() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/api/image-review-sample", { cache: "no-store" });
+        const r = await fetch("/api/image-review-sample-100", { cache: "no-store" });
         const data = await r.json();
         if (!r.ok || !data.ok) throw new Error(data.error || "Could not load sample.");
         setDestinations(data.destinations || []);
@@ -118,7 +118,7 @@ export default function ImageReviewPage() {
     <main style={styles.main}>
       <div style={styles.header}>
         <div>
-          <div style={styles.eyebrow}>PEXELS VALIDATION · NO IMAGEKIT UPLOADS</div>
+          <div style={styles.eyebrow}>PEXELS 100-DESTINATION VALIDATION · NO IMAGEKIT UPLOADS</div>
           <h1 style={styles.h1}>100-Destination Image Review</h1>
           <p style={styles.sub}>
             Three Pexels candidates per real TravelGinni destination.
