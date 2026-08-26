@@ -63,6 +63,18 @@ type FlightSummary =
       reason: string;
     };
 
+type DestinationImage =
+  | { status: "loading" }
+  | {
+      status: "ready";
+      imageUrl: string;
+      photoUrl: string;
+      photographer: string;
+      photographerUrl: string;
+      alt: string;
+    }
+  | { status: "unavailable" };
+
 const FLIGHT_ENRICH_LIMIT = 8;
 const FLIGHT_CONCURRENCY = 3;
 
@@ -119,6 +131,85 @@ export default function DestinationDiscovery() {
     Record<string, FlightSummary>
   >({});
   const flightRequestGeneration = useRef(0);
+
+  const [destinationImages, setDestinationImages] = useState<
+    Record<string, DestinationImage>
+  >({});
+  const imageRequestGeneration = useRef(0);
+
+  useEffect(() => {
+    const generation = ++imageRequestGeneration.current;
+
+    if (results.length === 0) {
+      setDestinationImages({});
+      return;
+    }
+
+    setDestinationImages(
+      Object.fromEntries(
+        results.map((destination) => [
+          destination.traveller_destination_id,
+          { status: "loading" } as DestinationImage,
+        ])
+      )
+    );
+
+    (async () => {
+      try {
+        const response = await fetch("/api/destination-images", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            destinations: results.map((destination) => ({
+              id: destination.traveller_destination_id,
+              name: destination.display_name,
+            })),
+          }),
+        });
+
+        const payload = await response.json();
+        if (generation !== imageRequestGeneration.current) return;
+
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error ?? "Destination images unavailable");
+        }
+
+        const next: Record<string, DestinationImage> = {};
+        for (const item of payload.results ?? []) {
+          next[item.id] = item.image
+            ? {
+                status: "ready",
+                imageUrl: item.image.image_url,
+                photoUrl: item.image.photo_url,
+                photographer: item.image.photographer,
+                photographerUrl: item.image.photographer_url,
+                alt: item.image.alt || `${item.name} travel photo`,
+              }
+            : { status: "unavailable" };
+        }
+
+        for (const destination of results) {
+          next[destination.traveller_destination_id] ??= { status: "unavailable" };
+        }
+
+        setDestinationImages(next);
+      } catch {
+        if (generation !== imageRequestGeneration.current) return;
+        setDestinationImages(
+          Object.fromEntries(
+            results.map((destination) => [
+              destination.traveller_destination_id,
+              { status: "unavailable" } as DestinationImage,
+            ])
+          )
+        );
+      }
+    })();
+
+    return () => {
+      imageRequestGeneration.current++;
+    };
+  }, [results]);
 
   useEffect(() => {
     const generation = ++flightRequestGeneration.current;
@@ -482,6 +573,45 @@ export default function DestinationDiscovery() {
 
               return (
                 <article className={styles.resultCard} key={result.traveller_destination_id}>
+                  <div className={styles.destinationImage}>
+                    {destinationImages[result.traveller_destination_id]?.status === "ready" ? (() => {
+                      const image = destinationImages[
+                        result.traveller_destination_id
+                      ] as Extract<DestinationImage, { status: "ready" }>;
+
+                      return (
+                        <>
+                          <a
+                            href={image.photoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={styles.destinationImageLink}
+                            aria-label={`Open ${result.display_name} photo on Pexels`}
+                          >
+                            <img
+                              src={image.imageUrl}
+                              alt={image.alt}
+                              className={styles.destinationImagePhoto}
+                            />
+                          </a>
+                          <div className={styles.imageCredit}>
+                            Photo by{" "}
+                            <a href={image.photographerUrl} target="_blank" rel="noreferrer">
+                              {image.photographer}
+                            </a>{" "}
+                            · Pexels
+                          </div>
+                        </>
+                      );
+                    })() : (
+                      <div className={styles.destinationImagePlaceholder}>
+                        {destinationImages[result.traveller_destination_id]?.status === "loading"
+                          ? "Loading destination image…"
+                          : "Destination image unavailable"}
+                      </div>
+                    )}
+                  </div>
+
                   <div className={styles.cardTop}>
                     <span className={styles.rank}>#{index + 1}</span>
                     <span className={styles.match}>
