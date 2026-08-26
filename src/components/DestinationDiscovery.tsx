@@ -163,6 +163,8 @@ export default function DestinationDiscovery() {
             destinations: results.map((destination) => ({
               id: destination.traveller_destination_id,
               name: destination.display_name,
+              destinationType: destination.destination_type,
+              countryCode: destination.country_code,
             })),
           }),
         });
