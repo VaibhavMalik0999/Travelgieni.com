@@ -4,320 +4,83 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-type ExtField = { value?: string };
-
-type Candidate = {
-  pageId: number;
-  title: string;
-  thumbnailUrl: string;
-  descriptionUrl: string | null;
+type PexelsPhoto = {
+  id: number;
   width: number;
   height: number;
-  mime: string | null;
-  mediaType: string | null;
-  artist: string | null;
-  license: string | null;
-  licenseUrl: string | null;
-  description: string | null;
-  categories: string | null;
+  url: string;
+  photographer: string;
+  photographer_url: string;
+  alt: string | null;
+  src: { large2x?: string; large?: string; landscape?: string; original?: string };
+};
+
+type SelectedImage = {
+  rank: number;
+  title: string;
   score: number;
-  sourceQuery: string;
+  source_query: string;
+  thumbnail_url: string;
+  commons_page: string;
+  creator: string;
+  license: string;
+  license_url: string;
+  description: string | null;
 };
 
-function cleanHtml(value?: string | null) {
-  if (!value) return null;
-  return value
-    .replace(/<br\s*\/?>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, " ")
-    .trim();
+function env(name: string) {
+  return process.env[name]?.trim() || "";
 }
 
-function meta(ext: Record<string, ExtField> | undefined, key: string) {
-  return cleanHtml(ext?.[key]?.value ?? null);
-}
+async function searchPexels(destination: string) {
+  const apiKey = env("PEXELS_API_KEY");
+  if (!apiKey) throw new Error("Missing PEXELS_API_KEY environment variable.");
 
-function tokens(s: string) {
-  return s
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .split(/\s+/)
-    .filter((t) => t.length >= 3);
-}
-
-function includesAny(text: string, words: string[]) {
-  const x = text.toLowerCase();
-  return words.some((w) => x.includes(w));
-}
-
-function allowedLicense(c: Candidate) {
-  if (!c.license || !c.licenseUrl) return false;
-  const x = `${c.license} ${c.licenseUrl}`.toLowerCase();
-
-  return [
-    "cc by",
-    "cc-by",
-    "cc0",
-    "public domain",
-    "creativecommons.org/licenses/by/",
-    "creativecommons.org/licenses/by-sa/",
-    "creativecommons.org/publicdomain/",
-  ].some((v) => x.includes(v));
-}
-
-function destinationQuerySet(destination: string) {
-  return [
-    `${destination} landscape`,
-    `${destination} scenic`,
-    `${destination} panoramic`,
-    `${destination} travel`,
-    `${destination} view`,
-  ];
-}
-
-function score(destination: string, c: Omit<Candidate, "score">) {
-  let s = 0;
-
-  const text = `${c.title} ${c.description ?? ""} ${c.categories ?? ""}`.toLowerCase();
-  const q = tokens(destination);
-  const hits = q.filter((t) => text.includes(t)).length;
-
-  if (q.length && hits === q.length) s += 30;
-  else if (hits) s += 14;
-
-  if (c.mediaType === "BITMAP") s += 8;
-  if (c.mime === "image/jpeg") s += 7;
-  if (c.width >= 1200) s += 7;
-
-  if (c.width && c.height) {
-    const ratio = c.width / c.height;
-    if (ratio >= 1.3 && ratio <= 2.15) s += 16;
-    else if (ratio >= 1.15 && ratio <= 2.4) s += 8;
-    else if (ratio < 0.95) s -= 12;
-  }
-
-  if (c.license && c.licenseUrl) s += 6;
-
-  const strongTravelTerms = [
-    "landscape","panorama","panoramic","scenic","view","skyline","cityscape",
-    "old town","historic centre","historic center","coast","coastal","beach",
-    "sea","mountain","mountains","valley","lake","river","fjord","village",
-    "harbour","harbor","island","forest","waterfall","cliff","sunrise","sunset"
-  ];
-
-  if (includesAny(text, strongTravelTerms)) s += 14;
-
-  const hardNegativeTerms = [
-    "map","locator","flag","logo","coat of arms","diagram","icon","poster","stamp",
-    "passport","ticket","brochure","sign","screenshot","document","plan","route map"
-  ];
-
-  if (includesAny(text, hardNegativeTerms)) s -= 55;
-
-  const weakTravelTerms = [
-    "station","platform","corridor","interior","shop","store","parking","car park",
-    "construction","football","match","train","railway","airport"
-  ];
-
-  if (includesAny(text, weakTravelTerms)) s -= 24;
-
-  if (c.sourceQuery.endsWith(" landscape")) s += 10;
-  else if (c.sourceQuery.endsWith(" scenic")) s += 8;
-  else if (c.sourceQuery.endsWith(" panoramic")) s += 7;
-  else if (c.sourceQuery.endsWith(" view")) s += 4;
-  else if (c.sourceQuery.endsWith(" travel")) s += 2;
-
-  return s;
-}
-
-type QueryFailure = {
-  query: string;
-  error: string;
-};
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function searchCommons(query: string, destination: string): Promise<Candidate[]> {
-  const p = new URLSearchParams({
-    action: "query",
-    format: "json",
-    origin: "*",
-    generator: "search",
-    gsrsearch: query,
-    gsrnamespace: "6",
-    gsrlimit: "12",
-    prop: "imageinfo",
-    iiprop: "url|size|mime|mediatype|extmetadata",
-    iiurlwidth: "1280",
-    iiextmetadatalanguage: "en",
-    iiextmetadatafilter:
-      "Artist|LicenseShortName|LicenseUrl|ImageDescription|Categories",
+  const params = new URLSearchParams({
+    query: destination,
+    orientation: "landscape",
+    size: "large",
+    per_page: "30",
+    page: "1",
   });
 
-  const url = `https://commons.wikimedia.org/w/api.php?${p.toString()}`;
-  const maxAttempts = 2;
-  let lastError = "Commons request failed";
-  let data: any = null;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const r = await fetch(url, {
-        headers: {
-          "User-Agent": "TravelGinniDestinationImageRetrievalV2/1.1",
-          Accept: "application/json",
-        },
-        cache: "no-store",
-        signal: AbortSignal.timeout(9000),
-      });
-
-      if (r.ok) {
-        data = await r.json();
-        break;
-      }
-
-      lastError = `Commons ${r.status}`;
-      const retryable = r.status === 429 || r.status >= 500;
-      if (!retryable || attempt === maxAttempts) {
-        throw new Error(lastError);
-      }
-    } catch (e) {
-      lastError = e instanceof Error ? e.message : "Commons request failed";
-      if (attempt === maxAttempts) throw new Error(lastError);
-    }
-
-    await sleep(350 * attempt);
-  }
-
-  if (!data) throw new Error(lastError);
-  const pages = Object.values(data?.query?.pages ?? {}) as any[];
-
-  return pages.flatMap((page: any): Candidate[] => {
-    const i = page?.imageinfo?.[0];
-    if (!i?.thumburl) return [];
-
-    const base = {
-      pageId: Number(page.pageid),
-      title: String(page.title ?? ""),
-      thumbnailUrl: i.thumburl as string,
-      descriptionUrl: i.descriptionurl ?? null,
-      width: Number(i.width ?? 0),
-      height: Number(i.height ?? 0),
-      mime: i.mime ?? null,
-      mediaType: i.mediatype ?? null,
-      artist: meta(i.extmetadata, "Artist"),
-      license: meta(i.extmetadata, "LicenseShortName"),
-      licenseUrl: meta(i.extmetadata, "LicenseUrl"),
-      description: meta(i.extmetadata, "ImageDescription"),
-      categories: meta(i.extmetadata, "Categories"),
-      sourceQuery: query,
-    };
-
-    const candidate: Candidate = {
-      ...base,
-      score: score(destination, base),
-    };
-
-    if (candidate.mediaType !== "BITMAP") return [];
-    if (!["image/jpeg", "image/png", "image/webp"].includes(candidate.mime ?? "")) return [];
-
-    return [candidate];
+  const r = await fetch(`https://api.pexels.com/v1/search?${params.toString()}`, {
+    headers: { Authorization: apiKey, Accept: "application/json" },
+    cache: "no-store",
   });
+
+  if (!r.ok) {
+    const body = await r.text();
+    throw new Error(`Pexels ${r.status}: ${body.slice(0, 180)}`);
+  }
+
+  const data = await r.json();
+  return (data?.photos ?? []) as PexelsPhoto[];
 }
 
-function normalizedWords(c: Candidate) {
-  return new Set(tokens(`${c.title} ${c.description ?? ""}`));
-}
+function selectThree(destination: string, photos: PexelsPhoto[]): SelectedImage[] {
+  // Keep this deliberately simple: Pexels search relevance/curation is what we are testing.
+  // Avoid near-identical source records and take the first three strong landscape results.
+  const seen = new Set<number>();
+  const unique = photos.filter((p) => {
+    if (!p?.id || seen.has(p.id)) return false;
+    seen.add(p.id);
+    return p.width > p.height && Boolean(p.src?.large2x || p.src?.large || p.src?.landscape);
+  });
 
-function nearDuplicate(a: Candidate, b: Candidate) {
-  const aw = normalizedWords(a);
-  const bw = normalizedWords(b);
-  const intersection = [...aw].filter((w) => bw.has(w)).length;
-  const union = new Set([...aw, ...bw]).size || 1;
-  return intersection / union >= 0.65;
-}
-
-async function getCandidates(destination: string) {
-  const querySet = destinationQuerySet(destination);
-  const groups: Candidate[][] = [];
-  const queryFailures: QueryFailure[] = [];
-
-  // Keep per-destination Commons pressure low. Two requests at a time is enough for
-  // this validation route and avoids one transient API failure killing the destination.
-  const queryConcurrency = 2;
-  for (let i = 0; i < querySet.length; i += queryConcurrency) {
-    const chunk = querySet.slice(i, i + queryConcurrency);
-    const settled = await Promise.allSettled(
-      chunk.map((query) => searchCommons(query, destination))
-    );
-
-    settled.forEach((result, index) => {
-      const query = chunk[index];
-      if (result.status === "fulfilled") {
-        groups.push(result.value);
-      } else {
-        queryFailures.push({
-          query,
-          error:
-            result.reason instanceof Error
-              ? result.reason.message
-              : "Commons query failed",
-        });
-      }
-    });
-  }
-
-  if (groups.length === 0) {
-    const details = queryFailures
-      .map((failure) => `${failure.query}: ${failure.error}`)
-      .join("; ");
-    throw new Error(`All Commons queries failed${details ? ` (${details})` : ""}`);
-  }
-
-  const byId = new Map<number, Candidate>();
-  for (const candidate of groups.flat()) {
-    const existing = byId.get(candidate.pageId);
-    if (!existing || candidate.score > existing.score) {
-      byId.set(candidate.pageId, candidate);
-    }
-  }
-
-  return {
-    querySet,
-    queryFailures,
-    successfulQueries: groups.length,
-    candidates: [...byId.values()].sort((a, b) => b.score - a.score),
-  };
-}
-
-function selectThree(candidates: Candidate[]) {
-  const eligible = candidates.filter(allowedLicense);
-  const selected: Candidate[] = [];
-  const minimumUsableScore = 45;
-
-  for (const c of eligible) {
-    if (c.score < minimumUsableScore) continue;
-
-    if (!selected.some((s) => nearDuplicate(s, c))) {
-      selected.push(c);
-    }
-
-    if (selected.length === 3) break;
-  }
-
-  for (const c of eligible) {
-    if (selected.length === 3) break;
-    if (c.score < minimumUsableScore) continue;
-    if (!selected.some((s) => s.pageId === c.pageId)) selected.push(c);
-  }
-
-  return { eligible, selected };
+  return unique.slice(0, 3).map((p, index) => ({
+    rank: index + 1,
+    title: p.alt || `${destination} — Pexels photo ${p.id}`,
+    // Compatibility field for the existing review UI. This is rank, NOT a visual-quality score.
+    score: 3 - index,
+    source_query: destination,
+    thumbnail_url: p.src.large2x || p.src.large || p.src.landscape || p.src.original || "",
+    commons_page: p.url,
+    creator: p.photographer,
+    license: "Pexels",
+    license_url: "https://www.pexels.com/license/",
+    description: p.alt,
+  }));
 }
 
 export async function GET(request: NextRequest) {
@@ -334,76 +97,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           ok: false,
-          usage:
-            "/api/image-batch-test?destinations=Scottish%20Highlands|Mallorca|Lofoten",
-          note: "Send up to 20 destination names per request. Validation only.",
+          usage: "/api/image-batch-test?destinations=Scottish%20Highlands|Mallorca|Lofoten",
+          note: "Send up to 20 destination names per request. Pexels validation only.",
         },
         { status: 400 }
       );
     }
 
     const results: any[] = [];
-    const concurrency = 2;
+    // One Pexels search per destination. Small concurrency keeps the validation quick and gentle.
+    const concurrency = 4;
 
     for (let i = 0; i < names.length; i += concurrency) {
       const chunk = names.slice(i, i + concurrency);
-
       const chunkResults = await Promise.all(
         chunk.map(async (destination) => {
           try {
-            const {
-              querySet,
-              queryFailures,
-              successfulQueries,
-              candidates,
-            } = await getCandidates(destination);
-            const { eligible, selected } = selectThree(candidates);
-
+            const photos = await searchPexels(destination);
+            const selected = selectThree(destination, photos);
             return {
               destination,
-              status:
-                selected.length >= 3
-                  ? "GOOD_3"
-                  : selected.length > 0
-                  ? "PARTIAL"
-                  : "NO_ELIGIBLE_IMAGES",
-              queries_used: querySet,
-              successful_queries: successfulQueries,
-              query_failures: queryFailures,
-              candidates_found: candidates.length,
-              eligible_found: eligible.length,
-              selected_images: selected.map((c, index) => ({
-                rank: index + 1,
-                title: c.title,
-                score: c.score,
-                source_query: c.sourceQuery,
-                thumbnail_url: c.thumbnailUrl,
-                commons_page: c.descriptionUrl,
-                creator: c.artist,
-                license: c.license,
-                license_url: c.licenseUrl,
-                description: c.description,
-              })),
-              top_10_candidates: candidates.slice(0, 10).map((c) => ({
-                title: c.title,
-                score: c.score,
-                source_query: c.sourceQuery,
-                license_eligible: allowedLicense(c),
-                thumbnail_url: c.thumbnailUrl,
-                description: c.description,
-              })),
+              status: selected.length >= 3 ? "GOOD_3" : selected.length > 0 ? "PARTIAL" : "NO_IMAGES",
+              source: "pexels",
+              query_used: destination,
+              candidates_found: photos.length,
+              eligible_found: photos.filter((p) => p.width > p.height).length,
+              selected_images: selected,
             };
           } catch (e) {
             return {
               destination,
               status: "ERROR",
+              source: "pexels",
               error: e instanceof Error ? e.message : "unknown error",
               selected_images: [],
             };
           }
         })
       );
-
       results.push(...chunkResults);
     }
 
@@ -415,20 +146,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       diagnostic_only: true,
-      retrieval_version: "travel-oriented-multi-query-v2.1-resilient",
+      image_source: "pexels",
+      retrieval_version: "pexels-search-v1",
       requested: names.length,
       elapsed_seconds: Number(((Date.now() - started) / 1000).toFixed(2)),
       classification_counts: counts,
       results,
-      note:
-        "No ImageKit uploads and no database writes. Individual Commons query failures are retried and reported without failing the whole destination when other queries succeed.",
+      note: "Validation only. One Pexels search per destination. No ImageKit uploads and no database writes.",
     });
   } catch (e) {
     return NextResponse.json(
-      {
-        ok: false,
-        error: e instanceof Error ? e.message : "batch test failed",
-      },
+      { ok: false, error: e instanceof Error ? e.message : "Pexels batch test failed" },
       { status: 500 }
     );
   }
