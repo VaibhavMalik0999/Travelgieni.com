@@ -91,6 +91,29 @@ type DestinationImage =
     }
   | { status: "unavailable" };
 
+type SortOption =
+  | "best_match"
+  | "trip_cost_asc"
+  | "trip_cost_desc"
+  | "flight_price_asc"
+  | "hotel_nightly_asc"
+  | "flight_duration_asc";
+
+function parseDurationMinutes(duration: string | null): number | null {
+  if (!duration) return null;
+
+  const isoMatch = duration.match(/^PT(?:(\d+)H)?(?:(\d+)M)?$/i);
+  if (isoMatch) {
+    return Number(isoMatch[1] ?? 0) * 60 + Number(isoMatch[2] ?? 0);
+  }
+
+  const hours = duration.match(/(\d+)\s*h/i);
+  const minutes = duration.match(/(\d+)\s*m/i);
+  if (!hours && !minutes) return null;
+
+  return Number(hours?.[1] ?? 0) * 60 + Number(minutes?.[1] ?? 0);
+}
+
 const FLIGHT_ENRICH_LIMIT = 8;
 const FLIGHT_CONCURRENCY = 3;
 const HOTEL_ENRICH_LIMIT = 8;
