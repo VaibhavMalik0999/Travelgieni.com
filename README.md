@@ -22,3 +22,4 @@ Then open `http://localhost:3000`.
 ## Deployment
 
 Import the GitHub repository into Vercel. Vercel should detect Next.js automatically.
+Deployment refresh
