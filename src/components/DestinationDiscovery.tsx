@@ -160,6 +160,10 @@ export default function DestinationDiscovery() {
   >({});
   const imageRequestGeneration = useRef(0);
 
+  const [sortOption, setSortOption] = useState<SortOption>("best_match");
+  const [directOnly, setDirectOnly] = useState(false);
+  const [maxTripCost, setMaxTripCost] = useState<number | null>(null);
+
   useEffect(() => {
     const generation = ++imageRequestGeneration.current;
 
