@@ -1,0 +1,316 @@
+{
+  "beach": {
+    "beach_coast": 1.0,
+    "water_activities": 0.45
+  },
+  "marina": {
+    "beach_coast": 0.65,
+    "water_activities": 0.7
+  },
+  "pier": {
+    "beach_coast": 0.55
+  },
+  "island": {
+    "beach_coast": 0.7,
+    "nature_scenery": 0.55
+  },
+  "lighthouse": {
+    "beach_coast": 0.35,
+    "culture_history": 0.55
+  },
+  "recreational_equipment_rental": {
+    "water_activities": 0.75
+  },
+  "swimming_pool": {
+    "water_activities": 0.25,
+    "resort_experience": 0.45
+  },
+  "ferry_service": {
+    "water_activities": 0.2
+  },
+  "nature_reserve": {
+    "nature_scenery": 1.0,
+    "hiking_outdoors": 0.75
+  },
+  "national_park": {
+    "nature_scenery": 1.0,
+    "hiking_outdoors": 0.9
+  },
+  "forest": {
+    "nature_scenery": 0.8,
+    "hiking_outdoors": 0.65
+  },
+  "mountain": {
+    "nature_scenery": 0.9,
+    "hiking_outdoors": 0.85
+  },
+  "lake": {
+    "nature_scenery": 0.8
+  },
+  "waterfall": {
+    "nature_scenery": 0.9
+  },
+  "river": {
+    "nature_scenery": 0.6
+  },
+  "hot_springs": {
+    "nature_scenery": 0.75,
+    "wellness": 0.9
+  },
+  "garden": {
+    "nature_scenery": 0.45
+  },
+  "rural_attraction": {
+    "nature_scenery": 0.55
+  },
+  "canal": {
+    "nature_scenery": 0.3
+  },
+  "recreational_trail_or_path": {
+    "hiking_outdoors": 1.0
+  },
+  "campground": {
+    "hiking_outdoors": 0.6
+  },
+  "park": {
+    "hiking_outdoors": 0.3
+  },
+  "rv_park": {
+    "hiking_outdoors": 0.45
+  },
+  "restaurant": {
+    "food_dining": 1.0
+  },
+  "casual_eatery": {
+    "food_dining": 0.75
+  },
+  "food_truck_stand": {
+    "food_dining": 0.65
+  },
+  "food_court": {
+    "food_dining": 0.5
+  },
+  "winery": {
+    "food_dining": 0.55,
+    "bars_evening_drinks": 0.45
+  },
+  "brewery": {
+    "food_dining": 0.45,
+    "bars_evening_drinks": 0.55
+  },
+  "fast_food_restaurant": {
+    "food_dining": 0.3
+  },
+  "cafe": {
+    "cafe_culture": 1.0
+  },
+  "coffee_shop": {
+    "cafe_culture": 1.0
+  },
+  "smoothie_juice_bar": {
+    "cafe_culture": 0.4
+  },
+  "non_alcoholic_beverage_venue": {
+    "cafe_culture": 0.45
+  },
+  "bar": {
+    "bars_evening_drinks": 1.0,
+    "clubbing_nightlife": 0.3
+  },
+  "lounge": {
+    "bars_evening_drinks": 0.85,
+    "clubbing_nightlife": 0.4
+  },
+  "alcoholic_beverage_venue": {
+    "bars_evening_drinks": 0.85
+  },
+  "distillery": {
+    "bars_evening_drinks": 0.45
+  },
+  "dance_club": {
+    "bars_evening_drinks": 0.3,
+    "clubbing_nightlife": 1.0
+  },
+  "music_venue": {
+    "clubbing_nightlife": 0.65,
+    "arts_entertainment": 0.8
+  },
+  "comedy_club": {
+    "clubbing_nightlife": 0.35,
+    "arts_entertainment": 0.65
+  },
+  "adult_entertainment_venue": {
+    "clubbing_nightlife": 0.35
+  },
+  "casino": {
+    "clubbing_nightlife": 0.45,
+    "arts_entertainment": 0.35
+  },
+  "performing_arts_venue": {
+    "arts_entertainment": 1.0
+  },
+  "theatre_venue": {
+    "arts_entertainment": 0.9
+  },
+  "movie_theater": {
+    "arts_entertainment": 0.55
+  },
+  "art_gallery": {
+    "arts_entertainment": 0.9
+  },
+  "street_art": {
+    "arts_entertainment": 0.7
+  },
+  "event_venue": {
+    "arts_entertainment": 0.6
+  },
+  "arts_and_entertainment": {
+    "arts_entertainment": 0.45
+  },
+  "gaming_venue": {
+    "arts_entertainment": 0.55
+  },
+  "arts_and_crafts_space": {
+    "arts_entertainment": 0.65
+  },
+  "makerspace": {
+    "arts_entertainment": 0.4
+  },
+  "stadium_arena": {
+    "arts_entertainment": 0.4,
+    "sports_recreation": 0.5
+  },
+  "historic_site": {
+    "culture_history": 1.0
+  },
+  "castle": {
+    "culture_history": 1.0
+  },
+  "fort": {
+    "culture_history": 0.95
+  },
+  "monument": {
+    "culture_history": 0.85
+  },
+  "museum": {
+    "culture_history": 0.9
+  },
+  "cultural_center": {
+    "culture_history": 0.7
+  },
+  "christian_place_of_worship": {
+    "culture_history": 0.45
+  },
+  "sculpture_statue": {
+    "culture_history": 0.65
+  },
+  "buddhist_place_of_worship": {
+    "culture_history": 0.45
+  },
+  "hindu_place_of_worship": {
+    "culture_history": 0.45
+  },
+  "jewish_place_of_worship": {
+    "culture_history": 0.45
+  },
+  "muslim_place_of_worship": {
+    "culture_history": 0.45
+  },
+  "amusement_park": {
+    "family_attractions": 1.0
+  },
+  "amusement_attraction": {
+    "family_attractions": 0.9
+  },
+  "zoo": {
+    "family_attractions": 1.0
+  },
+  "aquarium": {
+    "family_attractions": 1.0
+  },
+  "animal_attraction": {
+    "family_attractions": 0.9
+  },
+  "science_attraction": {
+    "family_attractions": 0.85
+  },
+  "planetarium": {
+    "family_attractions": 0.8
+  },
+  "playground": {
+    "family_attractions": 0.55
+  },
+  "arcade": {
+    "family_attractions": 0.65
+  },
+  "fairgrounds": {
+    "family_attractions": 0.75
+  },
+  "skate_park": {
+    "family_attractions": 0.3,
+    "sports_recreation": 0.55
+  },
+  "skating_rink": {
+    "family_attractions": 0.45,
+    "sports_recreation": 0.65
+  },
+  "resort": {
+    "resort_experience": 1.0,
+    "wellness": 0.35
+  },
+  "hotel": {
+    "resort_experience": 0.4
+  },
+  "private_lodging": {
+    "resort_experience": 0.25
+  },
+  "wellness_service": {
+    "resort_experience": 0.45,
+    "wellness": 1.0
+  },
+  "bed_and_breakfast": {
+    "resort_experience": 0.2
+  },
+  "inn": {
+    "resort_experience": 0.2
+  },
+  "market": {
+    "shopping_markets": 1.0
+  },
+  "farmers_market": {
+    "shopping_markets": 0.9
+  },
+  "fashion_and_apparel_store": {
+    "shopping_markets": 0.7
+  },
+  "specialty_store": {
+    "shopping_markets": 0.7
+  },
+  "arts_crafts_and_hobby_store": {
+    "shopping_markets": 0.65
+  },
+  "second_hand_store": {
+    "shopping_markets": 0.55
+  },
+  "shopping_mall": {
+    "shopping_markets": 0.8
+  },
+  "flowers_and_gifts_store": {
+    "shopping_markets": 0.35
+  },
+  "golf_course": {
+    "sports_recreation": 0.8
+  },
+  "sport_or_fitness_facility": {
+    "sports_recreation": 0.55
+  },
+  "sport_or_recreation_club": {
+    "sports_recreation": 0.7
+  },
+  "sports_and_recreation": {
+    "sports_recreation": 0.4
+  },
+  "rodeo": {
+    "sports_recreation": 0.35
+  }
+}
