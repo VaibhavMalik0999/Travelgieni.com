@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --experimental-strip-types --test src/lib/explore-ranking.test.ts scripts/ingest-explore-pois.test.ts",
+    "ingest:explore": "node --experimental-strip-types scripts/ingest-explore-pois.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.0.0",
