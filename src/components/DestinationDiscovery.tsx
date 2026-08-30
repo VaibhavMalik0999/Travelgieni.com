@@ -1,7 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getIntent, INTENTS, IntentKey } from "@/lib/intents";
+import type { ExplorePreferences } from "@/lib/explore-types";
+import { saveExploreNavigation } from "@/lib/explore-navigation";
 import styles from "./DestinationDiscovery.module.css";
 import OriginPicker, { type Origin } from "./OriginPicker";
 import TripTimingPicker, { type TripTiming } from "./TripTimingPicker";
@@ -160,6 +163,7 @@ function formatType(value: string) {
 }
 
 export default function DestinationDiscovery() {
+  const router = useRouter();
   const [preferences, setPreferences] =
     useState<PreferenceState>(STARTER_PREFERENCES);
   const [results, setResults] = useState<DestinationResult[]>([]);
@@ -669,6 +673,39 @@ export default function DestinationDiscovery() {
     }
   }
 
+  function exploreDestination(result: DestinationResult) {
+    const explorePreferences = Object.fromEntries(
+      Object.entries(preferences).map(([key, value]) => [
+        key,
+        {
+          target: value!.target,
+          importance: value!.importance,
+          match_type: "minimum" as const,
+          tolerance: 18,
+        },
+      ])
+    ) as ExplorePreferences;
+    const destinationImage = destinationImages[result.traveller_destination_id];
+
+    saveExploreNavigation({
+      destination: {
+        traveller_destination_id: result.traveller_destination_id,
+        display_name: result.display_name,
+        destination_type: result.destination_type,
+        country_code: result.country_code,
+        image: destinationImage?.status === "ready" ? {
+          image_url: destinationImage.imageUrl,
+          alt: destinationImage.alt,
+          photo_url: destinationImage.photoUrl,
+          photographer: destinationImage.photographer,
+          photographer_url: destinationImage.photographerUrl,
+        } : null,
+      },
+      preferences: explorePreferences,
+    });
+    router.push(`/explore/${encodeURIComponent(result.traveller_destination_id)}`);
+  }
+
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
@@ -1108,6 +1145,15 @@ export default function DestinationDiscovery() {
                     TravelGinni confidence:{" "}
                     <strong>{result.travel_role_confidence.toLowerCase()}</strong>
                   </div>
+
+                  <button
+                    type="button"
+                    className={styles.exploreButton}
+                    onClick={() => exploreDestination(result)}
+                  >
+                    Explore {result.display_name}
+                    <span aria-hidden="true">→</span>
+                  </button>
                 </article>
               );
             })}

@@ -1,0 +1,477 @@
+.page {
+  min-height: 100vh;
+  padding: 30px 24px 100px;
+  background:
+    radial-gradient(circle at 90% 4%, rgba(230, 204, 154, 0.2), transparent 28rem),
+    linear-gradient(180deg, #f8f6f0 0%, #f1f0e9 100%);
+  color: #17231c;
+}
+
+.backButton {
+  display: block;
+  width: min(1180px, 100%);
+  margin: 0 auto 18px;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: #4f5e54;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.destinationHeader,
+.fitPanel,
+.content,
+.loadingState,
+.errorState,
+.emptyState,
+.standaloneState {
+  width: min(1180px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.destinationHeader {
+  position: relative;
+  min-height: 390px;
+  overflow: hidden;
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at 80% 20%, rgba(210, 230, 194, 0.9), transparent 28rem),
+    #24392d;
+  box-shadow: 0 28px 80px rgba(29, 43, 34, 0.16);
+  display: flex;
+  align-items: flex-end;
+}
+
+.heroImage,
+.heroShade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.heroImage {
+  object-fit: cover;
+}
+
+.heroShade {
+  background: linear-gradient(90deg, rgba(12, 25, 17, 0.88) 0%, rgba(12, 25, 17, 0.48) 56%, rgba(12, 25, 17, 0.12) 100%);
+}
+
+.destinationHeader:not(.withImage) .heroShade {
+  background: linear-gradient(120deg, rgba(13, 28, 19, 0.96), rgba(45, 75, 55, 0.8));
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  max-width: 760px;
+  padding: clamp(30px, 6vw, 72px);
+  color: #fff;
+}
+
+.eyebrow,
+.sectionKicker {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.heroContent .eyebrow {
+  color: #dbe6d7;
+}
+
+.heroContent h1 {
+  margin: 0;
+  font-size: clamp(46px, 7vw, 82px);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+.heroContent p {
+  margin: 20px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.photoCredit {
+  position: absolute;
+  z-index: 2;
+  right: 16px;
+  bottom: 14px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #435047;
+  text-decoration: none;
+  font-size: 9px;
+}
+
+.fitPanel {
+  margin-top: 22px;
+  padding: clamp(24px, 4vw, 38px);
+  border: 1px solid #dfe4da;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.88);
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.7fr);
+  gap: 38px;
+  align-items: center;
+}
+
+.sectionKicker {
+  color: #718071;
+}
+
+.fitPanel h2,
+.sectionHeading h2,
+.loadingState h2,
+.errorState h2,
+.emptyState h2,
+.standaloneState h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.preferenceChips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.preferenceChip {
+  flex: 1 1 170px;
+  min-width: 0;
+  padding: 15px;
+  border-radius: 16px;
+  background: #edf2e6;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.preferenceChip > span {
+  font-size: 24px;
+}
+
+.preferenceChip strong,
+.preferenceChip small {
+  display: block;
+}
+
+.preferenceChip strong {
+  font-size: 13px;
+}
+
+.preferenceChip small {
+  margin-top: 4px;
+  color: #6c786e;
+  font-size: 10px;
+}
+
+.content {
+  padding-top: 78px;
+}
+
+.section + .section {
+  margin-top: 94px;
+}
+
+.sectionHeading {
+  margin-bottom: 28px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 30px;
+}
+
+.sectionHeading p {
+  max-width: 380px;
+  margin: 0;
+  color: #68756c;
+  line-height: 1.55;
+}
+
+.topGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.poiCard {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #dde2da;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 16px 45px rgba(42, 51, 45, 0.05);
+}
+
+.poiVisual {
+  min-height: 112px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.7), transparent 9rem),
+    linear-gradient(135deg, #dce8d2, #efe4ca);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.poiVisual > span {
+  font-size: 34px;
+}
+
+.poiVisual small {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.featuredCard .poiVisual {
+  min-height: 150px;
+  background:
+    radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.58), transparent 10rem),
+    linear-gradient(135deg, #c8dcb9, #ead6ad);
+}
+
+.poiBody {
+  padding: 20px;
+}
+
+.category {
+  color: #758078;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.poiBody h3 {
+  margin: 8px 0 0;
+  font-size: 22px;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+
+.poiBody p {
+  margin: 12px 0 0;
+  color: #657168;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.location {
+  margin-top: 14px;
+  color: #7a857d;
+  font-size: 11px;
+}
+
+.interestList {
+  display: grid;
+  gap: 28px;
+}
+
+.interestSection {
+  padding: clamp(20px, 3vw, 30px);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.interestHeading {
+  margin-bottom: 20px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.interestHeading > span {
+  font-size: 29px;
+}
+
+.interestHeading h3,
+.interestHeading p {
+  margin: 0;
+}
+
+.interestHeading h3 {
+  font-size: 22px;
+  letter-spacing: -0.025em;
+}
+
+.interestHeading p {
+  margin-top: 4px;
+  color: #738078;
+  font-size: 12px;
+}
+
+.horizontalCards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.horizontalCards .poiVisual {
+  min-height: 82px;
+}
+
+.horizontalCards .poiBody h3 {
+  font-size: 18px;
+}
+
+.dontMissSection {
+  padding: clamp(24px, 5vw, 52px);
+  border-radius: 30px;
+  background: #1f3327;
+  color: #fff;
+}
+
+.dontMissSection .sectionKicker,
+.dontMissSection .sectionHeading p {
+  color: #c0cbbf;
+}
+
+.dontMissGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dontMissGrid .poiCard {
+  color: #17231c;
+  box-shadow: none;
+}
+
+.loadingState,
+.errorState,
+.emptyState,
+.standaloneState {
+  margin-top: 48px;
+  padding: clamp(36px, 7vw, 80px);
+  border: 1px solid #dce1d8;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.82);
+  text-align: center;
+}
+
+.loadingState p,
+.errorState p,
+.emptyState p,
+.standaloneState p {
+  max-width: 580px;
+  margin: 16px auto 0;
+  color: #6c786f;
+  line-height: 1.6;
+}
+
+.spinner {
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 24px;
+  border: 3px solid #dfe5db;
+  border-top-color: #24392d;
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+
+.errorState > span {
+  display: block;
+  margin-bottom: 12px;
+  color: #9a4a3c;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.errorState button,
+.standaloneState button {
+  min-height: 48px;
+  margin-top: 24px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 999px;
+  background: #17231c;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 900px) {
+  .fitPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .topGrid,
+  .dontMissGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .horizontalCards {
+    grid-template-columns: repeat(4, minmax(240px, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .page {
+    padding: 18px 14px 70px;
+  }
+
+  .destinationHeader {
+    min-height: 340px;
+    border-radius: 24px;
+  }
+
+  .heroShade {
+    background: linear-gradient(0deg, rgba(12, 25, 17, 0.9), rgba(12, 25, 17, 0.14));
+  }
+
+  .heroContent {
+    padding: 30px 24px;
+  }
+
+  .photoCredit {
+    top: 12px;
+    right: 12px;
+    bottom: auto;
+  }
+
+  .sectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .topGrid,
+  .dontMissGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .content {
+    padding-top: 58px;
+  }
+
+  .section + .section {
+    margin-top: 68px;
+  }
+}
