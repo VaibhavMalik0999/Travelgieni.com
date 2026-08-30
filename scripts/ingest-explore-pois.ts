@@ -208,6 +208,8 @@ export function prepareIngestion(rows: CsvRow[], mapping: CategoryIntentMap): Pr
     const structuredScores =
       mapping[normalizeCategory(row.taxonomy_primary ?? "")] ??
       mapping[normalizeCategory(row.basic_category ?? "")];
+    const hasStructuredScores = Boolean(structuredScores && Object.keys(structuredScores).length);
+    const hasSemanticScores = Boolean(semanticScores && Object.keys(semanticScores).length);
 
     if (!destinationId) rowIssues.push(`row ${rowNumber}: canonical_destination_id is required`);
     if (!overtureId) rowIssues.push(`row ${rowNumber}: overture_poi_id is required`);
@@ -218,9 +220,9 @@ export function prepareIngestion(rows: CsvRow[], mapping: CategoryIntentMap): Pr
     if (validity === null) rowIssues.push(`row ${rowNumber}: is_valid_for_destination is required and must be boolean`);
     if (significance === null) rowIssues.push(`row ${rowNumber}: destination_significance is required and must be between 0 and 1`);
     if (row.overture_confidence && confidence === null) rowIssues.push(`row ${rowNumber}: overture_confidence must be between 0 and 1`);
-    if (!structuredScores || !Object.keys(structuredScores).length) rowIssues.push(`row ${rowNumber}: no existing category-to-intent mapping for ${category || "category"}`);
+    if (!hasStructuredScores && !hasSemanticScores) rowIssues.push(`row ${rowNumber}: no existing category-to-intent mapping for ${category || "category"}`);
 
-    if (rowIssues.length || !destinationId || !overtureId || !name || !category || validity === null || significance === null || !structuredScores || !semanticScores) {
+    if (rowIssues.length || !destinationId || !overtureId || !name || !category || validity === null || significance === null || !semanticScores) {
       issues.push(...rowIssues);
       return;
     }
@@ -261,7 +263,7 @@ export function prepareIngestion(rows: CsvRow[], mapping: CategoryIntentMap): Pr
       destination_significance: significance,
     });
     const mappedIntents = new Set([
-      ...Object.keys(structuredScores),
+      ...Object.keys(structuredScores ?? {}),
       ...Object.keys(semanticScores),
     ] as IntentKey[]);
     for (const intent of mappedIntents) {
@@ -270,7 +272,7 @@ export function prepareIngestion(rows: CsvRow[], mapping: CategoryIntentMap): Pr
         intent_key: intent,
         // The schema requires a structured value; zero explicitly represents
         // no structured match when an offline semantic rescue exists alone.
-        structured_relevance: structuredScores[intent] ?? 0,
+        structured_relevance: structuredScores?.[intent] ?? 0,
         semantic_relevance: semanticScores[intent] ?? null,
       });
     }

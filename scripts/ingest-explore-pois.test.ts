@@ -27,12 +27,30 @@ destination-2,Destination Two,overture-1,Named POI,13.4,52.5,museum,museum,0.8,,
 
 test("semantic-only rescue is retained without fabricating structured relevance", () => {
   const csv = `canonical_destination_id,overture_poi_id,poi_name,longitude,latitude,basic_category,is_valid_for_destination,destination_significance,semantic_relevance
-destination-1,overture-1,Named POI,13.4,52.5,museum,true,0.8,"{""wellness"":0.75}"
+destination-1,overture-1,Named POI,13.4,52.5,government_office,true,0.8,"{""culture_history"":0.75}"
 `;
   const prepared = prepareIngestion(parseCsv(csv), mapping);
-  const wellness = prepared.poiIntents.find(({ intent_key }) => intent_key === "wellness");
-  assert.equal(wellness?.structured_relevance, 0);
-  assert.equal(wellness?.semantic_relevance, 0.75);
+  assert.equal(prepared.validRows, 1);
+  assert.equal(prepared.skippedRows, 0);
+  assert.deepEqual(prepared.issues, []);
+  assert.deepEqual(prepared.poiIntents, [{
+    poi_id: "overture-1",
+    intent_key: "culture_history",
+    structured_relevance: 0,
+    semantic_relevance: 0.75,
+  }]);
+});
+
+test("preparation rejects an unmapped category without semantic relevance", () => {
+  const csv = `canonical_destination_id,overture_poi_id,poi_name,longitude,latitude,basic_category,is_valid_for_destination,destination_significance,semantic_relevance
+destination-1,overture-1,Named POI,13.4,52.5,government_office,true,0.8,
+`;
+  const prepared = prepareIngestion(parseCsv(csv), mapping);
+  assert.equal(prepared.validRows, 0);
+  assert.equal(prepared.skippedRows, 1);
+  assert.deepEqual(prepared.issues, [
+    "row 2: no existing category-to-intent mapping for government_office",
+  ]);
 });
 
 test("preparation rejects invalid coordinates, scores, intent keys, and required fields", () => {

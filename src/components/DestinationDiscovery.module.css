@@ -516,6 +516,30 @@
   font-size: 11px;
 }
 
+.exploreButton {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 18px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #17231c;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  font-weight: 800;
+  text-align: left;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.exploreButton:hover {
+  transform: translateY(-1px);
+  background: #2d4134;
+}
+
 .empty {
   padding: 32px;
   border: 1px dashed #cfd5ce;
