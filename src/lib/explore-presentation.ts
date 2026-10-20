@@ -25,10 +25,10 @@ export function buildExplorePresentation(response: ExploreResponse, preferences:
   // The existing API's dont_miss is derived from top_picks, so it is not an independent
   // catalogue of iconic attractions. Missing landmarks require upstream inventory expansion.
   const candidates = new Map<string, RankedExplorePoi>();
-  for (const poi of [...response.dont_miss, ...response.top_picks]) candidates.set(poi.poi_id, poi);
+  for (const poi of response.destination_highlights ?? [...response.dont_miss, ...response.top_picks]) candidates.set(poi.poi_id, poi);
   const highlights = [...candidates.values()]
     .filter((poi) => !used.has(poi.poi_id))
     .sort((a, b) => b.ranking.destination_significance - a.ranking.destination_significance || a.poi_name.localeCompare(b.poi_name))
-    .slice(0, 5);
+    .slice(0, 12);
   return { interests, highlights };
 }

@@ -202,7 +202,7 @@ export function rankExplorePois(
   }));
 
   const byInterest: ExploreResponse["by_interest"] = {};
-  const groupLimit = Math.max(1, options.interestGroupLimit ?? 6);
+  const groupLimit = Math.max(1, options.interestGroupLimit ?? 12);
   for (const { intent } of selectedPreferences(preferences)) {
     byInterest[intent] = [...topPicks]
       .filter((poi) => clamp01(poi.intent_relevance[intent]) > 0 || clamp01(poi.semantic_intent_relevance?.[intent]) > 0)
@@ -222,11 +222,41 @@ export function rankExplorePois(
     )
     .slice(0, Math.max(1, options.dontMissLimit ?? 5));
 
+  // Independent significance ranking from ALL valid destination candidates, not topPicks.
+  // A modest category diversity penalty prevents one category from dominating.
+  const highlightCategories = new Map<string, number>();
+  const highlightPool = [...eligible]
+    .sort((a, b) => b.candidate.destination_significance - a.candidate.destination_significance || a.candidate.poi_id.localeCompare(b.candidate.poi_id));
+  const destinationHighlights: RankedExplorePoi[] = [];
+  while (highlightPool.length && destinationHighlights.length < 12) {
+    let bestIndex = 0;
+    let bestScore = -Infinity;
+    for (let index = 0; index < highlightPool.length; index++) {
+      const item = highlightPool[index];
+      const repeats = highlightCategories.get(item.candidate.category) ?? 0;
+      const score = clamp01(item.candidate.destination_significance) - 0.12 * repeats;
+      if (score > bestScore) { bestScore = score; bestIndex = index; }
+    }
+    const item = highlightPool.splice(bestIndex, 1)[0];
+    highlightCategories.set(item.candidate.category, (highlightCategories.get(item.candidate.category) ?? 0) + 1);
+    destinationHighlights.push({
+      ...item.candidate,
+      ranking: {
+        validity: 1, structured_relevance: round(item.structured), semantic_relevance: round(item.semantic),
+        fused_relevance: round(item.fused), destination_significance: round(clamp01(item.candidate.destination_significance)),
+        individual_utility: round(item.utility), coverage_reward: 0, redundancy_penalty: 0,
+        marginal_score: round(bestScore), matched_intents: item.fits.filter(f => f.fused > 0).map(f => f.intent),
+        selection_rank: destinationHighlights.length + 1,
+      },
+    });
+  }
+
   return {
     traveller_destination_id: travellerDestinationId,
     ranking_version: EXPLORE_RANKING_VERSION,
     top_picks: topPicks,
     by_interest: byInterest,
     dont_miss: dontMiss,
+    destination_highlights: destinationHighlights,
   };
 }

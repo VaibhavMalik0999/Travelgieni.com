@@ -29,6 +29,8 @@ export type ExplorePoiCandidate = {
   intent_relevance: Partial<Record<IntentKey, number>>;
   /** Offline semantic POI-to-intent rescue scores, with values from 0 to 1. */
   semantic_intent_relevance?: Partial<Record<IntentKey, number>>;
+  image_url?: string | null;
+  image_attribution?: string | null;
   description?: string | null;
   locality?: string | null;
   country_code?: string | null;
@@ -67,4 +69,5 @@ export type ExploreResponse = {
   top_picks: RankedExplorePoi[];
   by_interest: Partial<Record<IntentKey, RankedExplorePoi[]>>;
   dont_miss: RankedExplorePoi[];
+  destination_highlights?: RankedExplorePoi[];
 };
