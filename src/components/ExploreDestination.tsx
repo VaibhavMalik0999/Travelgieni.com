@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getIntent, type IntentKey } from "@/lib/intents";
-import { buildExplorePresentation } from "@/lib/explore-presentation";
 import { loadExploreNavigation, type ExploreNavigationContext } from "@/lib/explore-navigation";
 import type { ExploreResponse, RankedExplorePoi } from "@/lib/explore-types";
 import styles from "./ExploreDestination.module.css";
@@ -25,11 +24,12 @@ function PoiCard({ poi, preferences, featured = false }: {
   return (
     <article className={`${styles.poiCard} ${featured ? styles.featuredCard : ""}`}>
       <div className={styles.poiVisual} aria-hidden="true">
-        <span>{intent?.emoji ?? "✦"}</span>
+        {poi.image_url ? <img src={poi.image_url} alt={poi.poi_name} loading="lazy" className={styles.poiImage} /> : <span>{intent?.emoji ?? "✦"}</span>}
         {featured && <small>Top pick</small>}
       </div>
       <div className={styles.poiBody}>
         <span className={styles.category}>{humanize(poi.category)}</span>
+        {poi.image_url && poi.image_attribution && <small>{poi.image_attribution}</small>}
         <h3>{poi.poi_name}</h3>
         {intent && <p>Great for your interest in {intent.label.toLowerCase()}.</p>}
         {(poi.locality || poi.country_code) && (
@@ -47,6 +47,8 @@ export default function ExploreDestination() {
   const [context, setContext] = useState<ExploreNavigationContext | null>(null);
   const [response, setResponse] = useState<ExploreResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expandedInterests, setExpandedInterests] = useState<Record<string, boolean>>({});
+  const [showAllHighlights, setShowAllHighlights] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (navigation: ExploreNavigationContext) => {
@@ -86,9 +88,12 @@ export default function ExploreDestination() {
       .slice(0, 3);
   }, [context]);
 
-  const presentation = useMemo(() => context && response
-    ? buildExplorePresentation(response, context.preferences)
-    : { interests: [], highlights: [] }, [context, response]);
+  const interestSections = useMemo(() => {
+    if (!context || !response) return [];
+    return (Object.entries(response.by_interest) as [IntentKey, RankedExplorePoi[]][])
+      .filter(([key, pois]) => Boolean(context.preferences[key]) && pois.length > 0)
+      .sort(([a], [b]) => (context.preferences[b]?.importance ?? 0) - (context.preferences[a]?.importance ?? 0));
+  }, [context, response]);
 
   const goBack = () => {
     if (window.history.length > 1) router.back();
@@ -175,27 +180,34 @@ export default function ExploreDestination() {
         <div className={styles.content}>
           <section className={styles.section}>
             <div className={styles.sectionHeading}>
-              <div><span className={styles.sectionKicker}>Made for your trip</span><h2>Explore your interests</h2></div>
-              <p>Places chosen around what matters to you.</p>
+              <div><span className={styles.sectionKicker}>Start here</span><h2>Top picks for you</h2></div>
+              <p>Places selected around what matters most to your trip.</p>
             </div>
-            <div className={styles.interestList}>
-              {presentation.interests.map(({ intent: key, pois }) => {
-                const intent = getIntent(key);
-                return <div className={styles.interestSection} key={key}>
-                  <div className={styles.interestHeading}><span>{intent?.emoji}</span><div><h3>{intent?.label ?? humanize(key)}</h3><p>{intent?.prompt}</p></div></div>
-                  <div className={styles.horizontalCards}>{pois.map((poi) => <PoiCard key={poi.poi_id} poi={poi} preferences={preferences} />)}</div>
-                </div>;
-              })}
+            <div className={styles.topGrid}>
+              {response.top_picks.map((poi, index) => <PoiCard key={poi.poi_id} poi={poi} preferences={preferences} featured={index < 3} />)}
             </div>
           </section>
 
-          {presentation.highlights.length > 0 && (
-            <section className={`${styles.section} ${styles.dontMissSection}`}>
-              <div className={styles.sectionHeading}>
-                <div><span className={styles.sectionKicker}>Beyond your interests</span><h2>Discover {destination.display_name}</h2></div>
-                <p>Other noteworthy places you might enjoy discovering.</p>
+          {interestSections.length > 0 && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeading}><div><span className={styles.sectionKicker}>Follow your mood</span><h2>Explore by your interests</h2></div></div>
+              <div className={styles.interestList}>
+                {interestSections.map(([key, pois]) => {
+                  const intent = getIntent(key);
+                  return <div className={styles.interestSection} key={key}>
+                    <div className={styles.interestHeading}><span>{intent?.emoji}</span><div><h3>{intent?.label ?? humanize(key)}</h3><p>{intent?.prompt}</p></div></div>
+                    <div className={styles.horizontalCards}>{(expandedInterests[key] ? pois : pois.slice(0, 4)).map((poi) => <PoiCard key={poi.poi_id} poi={poi} preferences={preferences} />)}</div>
+                  {pois.length > 4 && <button type="button" onClick={() => setExpandedInterests(previous => ({...previous, [key]: !previous[key]}))}>{expandedInterests[key] ? "Show fewer" : `Show all ${pois.length} places`}</button>}
+                  </div>;
+                })}
               </div>
-              <div className={styles.dontMissGrid}>{presentation.highlights.map((poi) => <PoiCard key={poi.poi_id} poi={poi} preferences={preferences} />)}</div>
+            </section>
+          )}
+
+          {response.dont_miss.length > 0 && (
+            <section className={`${styles.section} ${styles.dontMissSection}`}>
+              <div className={styles.sectionHeading}><div><span className={styles.sectionKicker}>Destination essentials</span><h2>Don&apos;t miss</h2></div><p>Standout places worth keeping on your shortlist.</p></div>
+              <div className={styles.dontMissGrid}>{response.dont_miss.map((poi) => <PoiCard key={poi.poi_id} poi={poi} preferences={preferences} />)}</div>
             </section>
           )}
         </div>
