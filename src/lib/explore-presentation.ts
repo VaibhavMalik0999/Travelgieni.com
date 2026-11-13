@@ -4,7 +4,7 @@ import type { ExplorePreferences, ExploreResponse, RankedExplorePoi } from "./ex
 export type ExploreInterestShelf = { intent: IntentKey; pois: RankedExplorePoi[] };
 export type ExplorePresentation = { interests: ExploreInterestShelf[]; highlights: RankedExplorePoi[] };
 
-/** Allocate each POI to at most one visible section, preserving the existing ranking API. */
+/** Allocate each POI to exactly one section across ALL pages (not only the first 12). */
 export function buildExplorePresentation(response: ExploreResponse, preferences: ExplorePreferences): ExplorePresentation {
   const used = new Set<string>();
   const interests: ExploreInterestShelf[] = [];
@@ -29,6 +29,6 @@ export function buildExplorePresentation(response: ExploreResponse, preferences:
   const highlights = [...candidates.values()]
     .filter((poi) => !used.has(poi.poi_id))
     .sort((a, b) => b.ranking.destination_significance - a.ranking.destination_significance || a.poi_name.localeCompare(b.poi_name))
-    .slice(0, 12);
+    ;
   return { interests, highlights };
 }
