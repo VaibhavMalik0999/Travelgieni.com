@@ -479,3 +479,51 @@
 /* POI images: use verified source URLs only; keep existing placeholder as fallback. */
 .poiVisual { position: relative; overflow: hidden; }
 .poiImage { width: 100%; height: 100%; object-fit: cover; display: block; position: absolute; inset: 0; }
+
+/* Independent 12-at-a-time pagination controls for every Explore shelf. */
+.moreButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 20px;
+  padding: 11px 20px;
+  border: 1px solid #c9d3c8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #24392d;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+.moreButton:hover,
+.moreButton:focus-visible {
+  border-color: #53745a;
+  background: #edf2e6;
+}
+.dontMissSection .moreButton {
+  border-color: #a1b8a4;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.pagination .moreButton {
+  margin-top: 0;
+}
+.pagination > span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #66776b;
+}
+.dontMissSection .pagination > span {
+  color: #c0cbbf;
+}
+.moreButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

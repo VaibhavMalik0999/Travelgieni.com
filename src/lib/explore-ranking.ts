@@ -87,18 +87,20 @@ function cosineSimilarity(a: IntentFit[], b: IntentFit[]) {
   return normA && normB ? dot / Math.sqrt(normA * normB) : 0;
 }
 
-function similarity(
+/**
+ * Same pairwise similarity used by the frozen V1 scoring formula.
+ * Cache the maximum against the already selected POIs; it only increases.
+ */
+function pairSimilarity(
   candidate: ExplorePoiCandidate,
   candidateFits: IntentFit[],
-  selected: { candidate: ExplorePoiCandidate; fits: IntentFit[] }[]
+  selected: { candidate: ExplorePoiCandidate; fits: IntentFit[] }
 ) {
-  return selected.reduce((maximum, item) => {
-    const categorySimilarity =
-      candidate.category.trim().toLowerCase() === item.candidate.category.trim().toLowerCase()
-        ? 1
-        : 0;
-    return Math.max(maximum, categorySimilarity, cosineSimilarity(candidateFits, item.fits));
-  }, 0);
+  const categorySimilarity =
+    candidate.category.trim().toLowerCase() === selected.candidate.category.trim().toLowerCase()
+      ? 1
+      : 0;
+  return Math.max(categorySimilarity, cosineSimilarity(candidateFits, selected.fits));
 }
 
 export type ExploreRankingOptions = {
@@ -107,6 +109,8 @@ export type ExploreRankingOptions = {
   redundancyWeight?: number;
   interestGroupLimit?: number;
   dontMissLimit?: number;
+  /** Only changes the number of highlights returned, not their scoring or ordering. */
+  destinationHighlightLimit?: number;
 };
 
 /** Pure, provider- and destination-type-independent Explore Ranking V1. */
@@ -138,6 +142,9 @@ export function rankExplorePois(
   const selected: Array<(typeof eligible)[number] & RankedExplorePoi["ranking"]> = [];
   const covered = new Map<IntentKey, number>();
   const remaining = [...eligible];
+  // O(n²) similarity updates instead of recomputing every earlier pair for every candidate.
+  // This is an implementation optimization; the locked V1 score and tie-breaks are unchanged.
+  const maximumSimilarity = new Map<(typeof eligible)[number], number>();
 
   while (remaining.length && selected.length < limit) {
     let bestIndex = 0;
@@ -148,7 +155,7 @@ export function rankExplorePois(
         const previous = covered.get(fit.intent) ?? 0;
         return reward + Math.max(0, fit.fused - previous) * fit.weight;
       }, 0);
-      const redundancy = similarity(item.candidate, item.fits, selected);
+      const redundancy = maximumSimilarity.get(item) ?? 0;
       const marginal = item.utility + lambda * coverage - mu * redundancy;
 
       if (
@@ -162,6 +169,12 @@ export function rankExplorePois(
     });
 
     const chosen = remaining.splice(bestIndex, 1)[0];
+    for (const item of remaining) {
+      maximumSimilarity.set(
+        item,
+        Math.max(maximumSimilarity.get(item) ?? 0, pairSimilarity(item.candidate, item.fits, chosen))
+      );
+    }
     for (const fit of chosen.fits) {
       covered.set(fit.intent, Math.max(covered.get(fit.intent) ?? 0, fit.fused));
     }
@@ -228,7 +241,8 @@ export function rankExplorePois(
   const highlightPool = [...eligible]
     .sort((a, b) => b.candidate.destination_significance - a.candidate.destination_significance || a.candidate.poi_id.localeCompare(b.candidate.poi_id));
   const destinationHighlights: RankedExplorePoi[] = [];
-  while (highlightPool.length && destinationHighlights.length < 12) {
+  const highlightLimit = Math.max(1, options.destinationHighlightLimit ?? 12);
+  while (highlightPool.length && destinationHighlights.length < highlightLimit) {
     let bestIndex = 0;
     let bestScore = -Infinity;
     for (let index = 0; index < highlightPool.length; index++) {

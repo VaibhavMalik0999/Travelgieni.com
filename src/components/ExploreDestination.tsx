@@ -48,13 +48,16 @@ export default function ExploreDestination() {
   const [context, setContext] = useState<ExploreNavigationContext | null>(null);
   const [response, setResponse] = useState<ExploreResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedInterests, setExpandedInterests] = useState<Record<string, boolean>>({});
-  const [showAllHighlights, setShowAllHighlights] = useState(false);
+  const [interestPages, setInterestPages] = useState<Record<string, number>>({});
+  const [highlightPages, setHighlightPages] = useState(1);
+  const PAGE_SIZE = 12;
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (navigation: ExploreNavigationContext) => {
     setLoading(true);
     setError(null);
+    setInterestPages({});
+    setHighlightPages(1);
     try {
       const apiResponse = await fetch("/api/explore", {
         method: "POST",
@@ -62,7 +65,7 @@ export default function ExploreDestination() {
         body: JSON.stringify({
           traveller_destination_id: destinationId,
           preferences: navigation.preferences,
-          limit: 50,
+          full_catalog: true,
         }),
       });
       const payload = await apiResponse.json();
@@ -167,14 +170,14 @@ export default function ExploreDestination() {
         </section>
       )}
 
-      {!loading && !error && response && response.top_picks.length === 0 && (
+      {!loading && !error && response && presentation.interests.length === 0 && presentation.highlights.length === 0 && (
         <section className={styles.emptyState}>
           <h2>No personalised places yet</h2>
           <p>We don’t have Explore places for this destination yet. Your destination match is still saved.</p>
         </section>
       )}
 
-      {!loading && !error && response && response.top_picks.length > 0 && (
+      {!loading && !error && response && (presentation.interests.length > 0 || presentation.highlights.length > 0) && (
         <div className={styles.content}>
           <section className={styles.section}>
             <div className={styles.sectionHeading}>
@@ -186,8 +189,20 @@ export default function ExploreDestination() {
                 const intent = getIntent(key);
                 return <div className={styles.interestSection} key={key}>
                   <div className={styles.interestHeading}><span>{intent?.emoji}</span><div><h3>{intent?.label ?? humanize(key)}</h3><p>{intent?.prompt}</p></div></div>
-                  <div className={styles.horizontalCards}>{(expandedInterests[key] ? pois : pois.slice(0, 4)).map((poi) => <PoiCard key={poi.poi_id} poi={poi} preferences={preferences} />)}</div>
-                  {pois.length > 4 && <button type="button" onClick={() => setExpandedInterests(previous => ({ ...previous, [key]: !previous[key] }))}>{expandedInterests[key] ? "Show fewer" : `Show all ${pois.length} places`}</button>}
+                  <div className={styles.horizontalCards}>{pois.slice(((interestPages[key] ?? 1) - 1) * PAGE_SIZE, (interestPages[key] ?? 1) * PAGE_SIZE).map((poi) => <PoiCard key={poi.poi_id} poi={poi} preferences={preferences} />)}</div>
+                  {pois.length > PAGE_SIZE && (
+                    <div className={styles.pagination}>
+                      <button className={styles.moreButton} type="button" disabled={(interestPages[key] ?? 1) === 1}
+                        onClick={() => setInterestPages(previous => ({ ...previous, [key]: Math.max(1, (previous[key] ?? 1) - 1) }))}>
+                        ← Previous 12
+                      </button>
+                      <span>Page {interestPages[key] ?? 1} of {Math.ceil(pois.length / PAGE_SIZE)}</span>
+                      <button className={styles.moreButton} type="button" disabled={(interestPages[key] ?? 1) * PAGE_SIZE >= pois.length}
+                        onClick={() => setInterestPages(previous => ({ ...previous, [key]: (previous[key] ?? 1) + 1 }))}>
+                        Next 12 →
+                      </button>
+                    </div>
+                  )}
                 </div>;
               })}
             </div>
@@ -199,8 +214,16 @@ export default function ExploreDestination() {
                 <div><span className={styles.sectionKicker}>Beyond your interests</span><h2>Discover {destination.display_name}</h2></div>
                 <p>Other noteworthy places you might enjoy discovering.</p>
               </div>
-              <div className={styles.dontMissGrid}>{(showAllHighlights ? presentation.highlights : presentation.highlights.slice(0, 4)).map((poi) => <PoiCard key={poi.poi_id} poi={poi} preferences={preferences} />)}</div>
-              {presentation.highlights.length > 4 && <button type="button" onClick={() => setShowAllHighlights(value => !value)}>{showAllHighlights ? "Show fewer" : `Show all ${presentation.highlights.length} highlights`}</button>}
+              <div className={styles.dontMissGrid}>{presentation.highlights.slice((highlightPages - 1) * PAGE_SIZE, highlightPages * PAGE_SIZE).map((poi) => <PoiCard key={poi.poi_id} poi={poi} preferences={preferences} />)}</div>
+              {presentation.highlights.length > PAGE_SIZE && (
+                <div className={styles.pagination}>
+                  <button className={styles.moreButton} type="button" disabled={highlightPages === 1}
+                    onClick={() => setHighlightPages(previous => Math.max(1, previous - 1))}>← Previous 12</button>
+                  <span>Page {highlightPages} of {Math.ceil(presentation.highlights.length / PAGE_SIZE)}</span>
+                  <button className={styles.moreButton} type="button" disabled={highlightPages * PAGE_SIZE >= presentation.highlights.length}
+                    onClick={() => setHighlightPages(previous => previous + 1)}>Next 12 →</button>
+                </div>
+              )}
             </section>
           )}
         </div>
