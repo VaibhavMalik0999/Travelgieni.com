@@ -63,7 +63,23 @@ export async function POST(request: NextRequest) {
     const limit = Math.min(50, Math.max(1, requestedLimit));
 
     const candidates = await createExplorePoiSourceFromEnvironment().getCandidates(destinationId);
-    return NextResponse.json(rankExplorePois(destinationId, candidates, preferences, { limit }));
+    // Explore UI needs the entire ranked order once, so each section can page locally
+    // without re-ranking or re-fetching. Existing API callers retain the old limits.
+    const fullCatalog = body?.full_catalog === true;
+    const eligibleCount = candidates.filter(
+      (candidate) =>
+        candidate.is_valid_for_destination &&
+        candidate.traveller_destination_id === destinationId
+    ).length;
+    return NextResponse.json(
+      rankExplorePois(destinationId, candidates, preferences, fullCatalog
+        ? {
+            limit: Math.max(1, eligibleCount),
+            interestGroupLimit: Math.max(1, eligibleCount),
+            destinationHighlightLimit: Math.max(1, eligibleCount),
+          }
+        : { limit })
+    );
   } catch (error) {
     if (error instanceof ExplorePoiSourceError) {
       return NextResponse.json(
