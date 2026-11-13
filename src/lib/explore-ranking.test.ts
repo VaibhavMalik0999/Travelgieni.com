@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { IntentKey } from "./intents.ts";
 import type { ExplorePoiCandidate, ExplorePreferences } from "./explore-types.ts";
+import { buildExplorePresentation } from "./explore-presentation.ts";
 import {
   fuseRelevance,
   geometricUtility,
@@ -121,4 +122,41 @@ test("the same algorithm handles unrelated city and nature intent mixes", () => 
   assert.deepEqual(new Set(nature.top_picks.map(({ poi_id }) => poi_id)), new Set(["trail", "spa"]));
   assert.ok(city.by_interest.culture_history?.length);
   assert.ok(nature.by_interest.hiking_outdoors?.length);
+});
+
+test("full catalog keeps frozen ranking order while allowing every 12-card page", () => {
+  const candidates = [
+    ...Array.from({ length: 35 }, (_, i) => poi(`beach-${String(i).padStart(2, "0")}`, "beach", { beach_coast: 0.99 - i * 0.01 })),
+    ...Array.from({ length: 30 }, (_, i) => poi(`club-${String(i).padStart(2, "0")}`, "nightclub", { clubbing_nightlife: 0.99 - i * 0.01 })),
+    ...Array.from({ length: 30 }, (_, i) => poi(`museum-${String(i).padStart(2, "0")}`, "museum", {}, { destination_significance: 0.95 - i * 0.01 })),
+  ];
+  const prefs = preferences("beach_coast", "clubbing_nightlife");
+  const first = rankExplorePois(DESTINATION, candidates, prefs, { limit: 20 });
+  const full = rankExplorePois(DESTINATION, candidates, prefs, {
+    limit: candidates.length,
+    interestGroupLimit: candidates.length,
+    destinationHighlightLimit: candidates.length,
+  });
+
+  assert.deepEqual(
+    full.top_picks.slice(0, 20).map((item) => item.poi_id),
+    first.top_picks.map((item) => item.poi_id),
+    "Increasing the response horizon must not change the frozen first-page ranking"
+  );
+  const presentation = buildExplorePresentation(full, prefs);
+  const beaches = presentation.interests.find((shelf) => shelf.intent === "beach_coast")!.pois;
+  const clubs = presentation.interests.find((shelf) => shelf.intent === "clubbing_nightlife")!.pois;
+  assert.equal(beaches.length, 35);
+  assert.equal(clubs.length, 30);
+  assert.equal(presentation.highlights.length, 30);
+
+  const all = [...beaches, ...clubs, ...presentation.highlights].map((item) => item.poi_id);
+  assert.equal(new Set(all).size, all.length, "A POI must never repeat across sections or pages");
+  assert.equal(all.length, 95);
+  for (const shelf of [beaches, clubs, presentation.highlights]) {
+    assert.equal(shelf.slice(0, 12).length, 12);
+    assert.equal(shelf.slice(12, 24).length, 12);
+    assert.equal(shelf.slice(24, 36).length, Math.min(12, shelf.length - 24));
+    assert.equal(new Set([...shelf.slice(0, 12), ...shelf.slice(12, 24)].map(p => p.poi_id)).size, 24);
+  }
 });
