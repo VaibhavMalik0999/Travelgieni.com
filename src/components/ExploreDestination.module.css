@@ -504,3 +504,26 @@
 .dontMissSection .moreButton {
   border-color: #a1b8a4;
 }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.pagination .moreButton {
+  margin-top: 0;
+}
+.pagination > span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #66776b;
+}
+.dontMissSection .pagination > span {
+  color: #c0cbbf;
+}
+.moreButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
